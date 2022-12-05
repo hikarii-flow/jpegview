@@ -83,3 +83,8 @@ jobs:
         msbuild.exe /property:Platform=x64 /property:configuration="Release" src\JPEGView.sln
 
       shell: cmd
+    - name: Upload output
+      uses: actions/upload-artifact@v3
+      with:
+        name: release
+        path: src/JPEGView/bin
