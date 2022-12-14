@@ -313,7 +313,7 @@
     <ClCompile Include="JPEGLosslessTransform.cpp" />
     <ClCompile Include="JPEGProvider.cpp" />
     <ClCompile Include="JPEGView.cpp" />
-    <ClInclude Include="JXLWrapper.cpp" />
+    <ClCompile Include="JXLWrapper.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LocalDensityCorr.cpp" />
     <ClCompile Include="ManageOpenWithDlg.cpp" />
