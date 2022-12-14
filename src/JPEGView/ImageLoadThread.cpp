@@ -11,6 +11,7 @@
 #include "BasicProcessing.h"
 #include "dcraw_mod.h"
 #include "TJPEGWrapper.h"
+#include "JXLWrapper.h"
 #include "J40Wrapper.h"
 #include "MaxImageDef.h"
 
@@ -356,6 +357,11 @@ void CImageLoadThread::DeleteCachedWebpDecoder() {
 	m_sLastWebpFileName.Empty();
 }
 
+void CImageLoadThread::DeleteCachedJxlDecoder() {
+	JxlReader::DeleteCache();
+	m_sLastJxlFileName.Empty();
+}
+
 void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
 	HANDLE hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -551,6 +557,72 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 }
 
 void CImageLoadThread::ProcessReadJXLRequest(CRequest * request) {
+	bool bUseCachedDecoder = false;
+	const wchar_t* sFileName;
+	sFileName = (const wchar_t*)request->FileName;
+	if (sFileName != m_sLastJxlFileName) {
+		DeleteCachedJxlDecoder();
+	} else {
+		bUseCachedDecoder = true;
+	}
+
+	HANDLE hFile;
+	if (!bUseCachedDecoder) {
+		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			return;
+		}
+	}
+	char* pBuffer = NULL;
+	try {
+		unsigned int nFileSize;
+		unsigned int nNumBytesRead;
+		if (!bUseCachedDecoder) {
+			// Don't read too huge files
+			nFileSize = ::GetFileSize(hFile, NULL);
+			if (nFileSize > MAX_WEBP_FILE_SIZE) { // TODO: MAX_JXL_FILE_SIZE
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
+			}
+
+			pBuffer = new(std::nothrow) char[nFileSize];
+			if (pBuffer == NULL) {
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
+			}
+		} else {
+			nFileSize = 0; // to avoid compiler warnings, not used
+		}
+		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+			bool bHasAnimation;
+			uint8* pPixelData = (uint8*)JxlReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+			if (pPixelData != NULL) {
+				m_sLastJxlFileName = sFileName;
+				// Multiply alpha value into each AABBGGRR pixel
+				uint32* pImage32 = (uint32*)pPixelData;
+				for (int i = 0; i < nWidth * nHeight; i++)
+					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
+
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+			} else {
+				delete[] pPixelData;
+				DeleteCachedJxlDecoder();
+			}
+		}
+	} catch (...) {
+		delete request->Image;
+		request->Image = NULL;
+	}
+	if (!bUseCachedDecoder) {
+		::CloseHandle(hFile);
+		// delete[] pBuffer;
+	}
+}
+
+void CImageLoadThread::ProcessReadJXLRequestJ40(CRequest * request) {
 	HANDLE hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
 		return;
