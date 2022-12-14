@@ -282,7 +282,8 @@
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D; xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
+xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
