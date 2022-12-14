@@ -133,7 +133,8 @@
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D; xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
+xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -180,7 +181,8 @@
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D; xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
+xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -232,7 +234,8 @@
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D; xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
+xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
