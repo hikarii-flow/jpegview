@@ -88,16 +88,20 @@ private:
 	static volatile int m_curHandle; // Request handle returned by AsyncLoad()
 
 	Gdiplus::Bitmap* m_pLastBitmap; // Last read GDI+ bitmap, cached to speed up GIF animations
-	CString m_sLastFileName;
+	CString m_sLastFileName; // Only for GDI+ files
+	CString m_sLastJxlFileName; // Only for animated JPEG XL files
 
 	virtual void ProcessRequest(CRequestBase& request);
 	virtual void AfterFinishProcess(CRequestBase& request);
 	void DeleteCachedGDIBitmap();
+	void DeleteCachedJxlDecoder();
 
 	void ProcessReadJPEGRequest(CRequest * request);
 	void ProcessReadBMPRequest(CRequest * request);
 	void ProcessReadTGARequest(CRequest * request);
 	void ProcessReadWEBPRequest(CRequest * request);
+	void ProcessReadJXLRequestJ40(CRequest* request);
+	void ProcessReadJXLRequest(CRequest* request);
 	void ProcessReadRAWRequest(CRequest * request);
 	void ProcessReadGDIPlusRequest(CRequest * request);
 	void ProcessReadWICRequest(CRequest* request);
