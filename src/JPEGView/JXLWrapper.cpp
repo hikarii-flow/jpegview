@@ -11,7 +11,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 JxlDecoderPtr cached_jxl_decoder = NULL;
@@ -24,7 +23,6 @@ int cached_jxl_width = 0;
 int cached_jxl_height = 0;
 
 // based on https://github.com/libjxl/libjxl/blob/main/examples/decode_oneshot.cc
-
 bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* pixels, int& xsize,
     int& ysize, bool& have_animation, int& frame_count, int& frame_time, std::vector<uint8_t>* icc_profile, bool& outOfMemory) {
 
@@ -37,7 +35,6 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
                 JXL_DEC_COLOR_ENCODING |
                 JXL_DEC_FRAME |
                 JXL_DEC_FULL_IMAGE)) {
-            fprintf(stderr, "JxlDecoderSubscribeEvents failed\n");
             return false;
         }
 
@@ -45,7 +42,6 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
         if (JXL_DEC_SUCCESS != JxlDecoderSetParallelRunner(cached_jxl_decoder.get(),
             JxlResizableParallelRunner,
             cached_jxl_runner.get())) {
-            fprintf(stderr, "JxlDecoderSetParallelRunner failed\n");
             return false;
         }
 
@@ -65,16 +61,13 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
         JxlDecoderStatus status = JxlDecoderProcessInput(cached_jxl_decoder.get());
 
         if (status == JXL_DEC_ERROR) {
-            fprintf(stderr, "Decoder error\n");
             return false;
         }
         else if (status == JXL_DEC_NEED_MORE_INPUT) {
-            fprintf(stderr, "Error, already provided all input\n");
             return false;
         }
         else if (status == JXL_DEC_BASIC_INFO) {
             if (JXL_DEC_SUCCESS != JxlDecoderGetBasicInfo(cached_jxl_decoder.get(), &info)) {
-                fprintf(stderr, "JxlDecoderGetBasicInfo failed\n");
                 return false;
             }
             cached_jxl_info = info;
@@ -92,7 +85,6 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
             if (JXL_DEC_SUCCESS !=
                 JxlDecoderGetICCProfileSize(
                     cached_jxl_decoder.get(), &format, JXL_COLOR_PROFILE_TARGET_DATA, &icc_size)) {
-                fprintf(stderr, "JxlDecoderGetICCProfileSize failed\n");
                 return false;
             }
             icc_profile->resize(icc_size);
@@ -100,28 +92,22 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
                 cached_jxl_decoder.get(), &format,
                 JXL_COLOR_PROFILE_TARGET_DATA,
                 icc_profile->data(), icc_profile->size())) {
-                fprintf(stderr, "JxlDecoderGetColorAsICCProfile failed\n");
                 return false;
             }
         }
         else if (status == JXL_DEC_FRAME) {
             JxlFrameHeader header;
             JxlDecoderGetFrameHeader(cached_jxl_decoder.get(), &header);
-            // TODO
             JxlAnimationHeader animation = cached_jxl_info.animation;
-            frame_time = 1000 * (uint64_t)header.duration * (uint64_t)animation.tps_denominator / (double)animation.tps_numerator;
+            frame_time = 1000.0 * header.duration * animation.tps_denominator / animation.tps_numerator;
         }
         else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             size_t buffer_size;
             if (JXL_DEC_SUCCESS !=
                 JxlDecoderImageOutBufferSize(cached_jxl_decoder.get(), &format, &buffer_size)) {
-                fprintf(stderr, "JxlDecoderImageOutBufferSize failed\n");
                 return false;
             }
             if (buffer_size != cached_jxl_info.xsize * cached_jxl_info.ysize * 4) {
-                fprintf(stderr, "Invalid out buffer size %" "llu" " %" "llu" "\n",
-                    static_cast<uint64_t>(buffer_size),
-                    static_cast<uint64_t>(cached_jxl_info.xsize * cached_jxl_info.ysize * 4));
                 return false;
             }
             pixels->resize(cached_jxl_info.xsize * cached_jxl_info.ysize * 4);
@@ -130,7 +116,6 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
             if (JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(cached_jxl_decoder.get(), &format,
                 pixels_buffer,
                 pixels_buffer_size)) {
-                fprintf(stderr, "JxlDecoderSetImageOutBuffer failed\n");
                 return false;
             }
         }
@@ -161,7 +146,6 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
             JxlDecoderCloseInput(cached_jxl_decoder.get());
         }
         else {
-            fprintf(stderr, "Unknown decoder status\n");
             return false;
         }
     }
@@ -189,7 +173,6 @@ void* JxlReader::ReadImage(int& width,
     std::vector<uint8_t> icc_profile;
     if (!DecodeJpegXlOneShot((const uint8_t*)buffer, sizebytes, &pixels, width, height,
         has_animation, frame_count, frame_time, &icc_profile, outOfMemory)) {
-        fprintf(stderr, "Error while decoding the jxl file\n");
         return NULL;
     }
     int size = width * height * nchannels;
