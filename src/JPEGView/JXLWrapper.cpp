@@ -23,20 +23,13 @@ int cached_jxl_prev_frame_timestamp = 0;
 int cached_jxl_width = 0;
 int cached_jxl_height = 0;
 
-/** Decodes JPEG XL image to floating point pixels and ICC Profile. Pixel are
- * stored as floating point, as interleaved RGBA (4 floating point values per
- * pixel), line per line from top to bottom.  Pixel values have nominal range
- * 0..1 but may go beyond this range for HDR or wide gamut. The ICC profile
- * describes the color format of the pixel data.
- */
+// based on https://github.com/libjxl/libjxl/blob/main/examples/decode_oneshot.cc
 
 bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* pixels, int& xsize,
     int& ysize, bool& have_animation, int& frame_count, int& frame_time, std::vector<uint8_t>* icc_profile, bool& outOfMemory) {
 
     if (cached_jxl_decoder.get() == NULL) {
         cached_jxl_runner = JxlResizableParallelRunnerMake(nullptr);
-
-        // JxlDecoderRewind(JxlDecoder* cached_jxl_decoder);
 
         cached_jxl_decoder = JxlDecoderMake(nullptr);
         if (JXL_DEC_SUCCESS !=
@@ -67,6 +60,7 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
     JxlBasicInfo info;
     JxlPixelFormat format = { 4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0 };
 
+    bool loop_check = false;
     for (;;) {
         JxlDecoderStatus status = JxlDecoderProcessInput(cached_jxl_decoder.get());
 
@@ -139,17 +133,16 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
                 fprintf(stderr, "JxlDecoderSetImageOutBuffer failed\n");
                 return false;
             }
-            // return true;
         }
         else if (status == JXL_DEC_FULL_IMAGE) {
-            // Nothing to do. Do not yet return. If the image is an animation, more
-            // full frames may be decoded. This example only keeps the last one.
+            // Full frame has been decoded
             
             xsize = cached_jxl_info.xsize;
             ysize = cached_jxl_info.ysize;
             have_animation = cached_jxl_info.have_animation;
             if (have_animation) {
-                frame_count = 2; // TODO get accurate frame counts
+                // TODO: Find a better way to indicate unknown frame count. JPEG XL images do not store number of frames.
+                frame_count = 2;
             }
             else {
                 frame_count = 1;
@@ -157,16 +150,15 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
             return true;
         }
         else if (status == JXL_DEC_SUCCESS) {
-            // All decoding successfully finished.
-            // It's not required to call JxlDecoderReleaseInput(cached_jxl_decoder.get()) here since
-            // the decoder will be destroyed.
-            // JxlDecoderReleaseInput(cached_jxl_decoder.get());
+            // All decoding successfully finished, we are at the end of the file.
+            // We must rewind the decoder to get a new frame.
+            if (loop_check)
+                return false; // escape infinite loop
+            loop_check = true;
             JxlDecoderRewind(cached_jxl_decoder.get());
             JxlDecoderSubscribeEvents(cached_jxl_decoder.get(), JXL_DEC_FRAME | JXL_DEC_FULL_IMAGE);
-            // JxlDecoderReleaseInput(cached_jxl_decoder.get());
             JxlDecoderSetInput(cached_jxl_decoder.get(), cached_jxl_data, cached_jxl_data_size);
             JxlDecoderCloseInput(cached_jxl_decoder.get());
-            // return true;
         }
         else {
             fprintf(stderr, "Unknown decoder status\n");
