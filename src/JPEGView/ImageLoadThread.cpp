@@ -531,7 +531,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest * request) {
 		if (!bUseCachedDecoder) {
 			// Don't read too huge files
 			nFileSize = ::GetFileSize(hFile, NULL);
-			if (nFileSize > MAX_WEBP_FILE_SIZE) { // TODO: MAX_JXL_FILE_SIZE
+			if (nFileSize > MAX_JXL_FILE_SIZE) {
 				request->OutOfMemory = true;
 				::CloseHandle(hFile);
 				return;
