@@ -6,12 +6,7 @@
 #include "jxl/resizable_parallel_runner.h"
 #include "jxl/resizable_parallel_runner_cxx.h"
 #include "MaxImageDef.h"
-#include <stdlib.h>
 #include <vector>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdint.h>
-#include <string.h>
 
 JxlDecoderPtr cached_jxl_decoder = NULL;
 JxlResizableParallelRunnerPtr cached_jxl_runner = NULL;
