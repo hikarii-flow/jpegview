@@ -454,6 +454,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 	bool bHasAnimation;
 	if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
 		uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+		request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, false, 0, 1, 0);
 	}
 }
 

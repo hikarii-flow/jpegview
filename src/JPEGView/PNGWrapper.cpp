@@ -10,6 +10,7 @@ png_infop       g_info_ptr;
 unsigned int    cur = 0;
 unsigned char* p_frame = NULL;
 png_bytepp      rows = NULL;
+void* dst = NULL;
 
 void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int channels)
 {
@@ -23,8 +24,12 @@ void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int
 		{
 			unsigned int j;
 			if (fwrite(&tgah, 1, 18, f2) != 18) return;
-			for (j = 0; j < h; j++)
+			free(dst);
+			dst = malloc(channels * w * h);
+			for (j = 0; j < h; j++) {
+				memcpy((char*)dst+j*channels*w, rows[j], channels*w);
 				if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
+			}
 			fclose(f2);
 		}
 		printf("  [libpng");
@@ -41,6 +46,7 @@ void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int
 void frame_info_fn(png_structp png_ptr, png_uint_32 frame_num)
 {
 	save_tga(rows, w0, h0, channels);
+	
 
 	/*x0 = png_get_next_frame_x_offset(png_ptr, g_info_ptr);
 	y0 = png_get_next_frame_y_offset(png_ptr, g_info_ptr);*/
@@ -100,6 +106,12 @@ void end_fn(png_structp png_ptr, png_infop info_ptr)
 	if (p_frame && rows)
 	{
 		save_tga(rows, w0, h0, channels);
+		/*
+		free(dst);
+		dst = malloc(w0 * h0 * 4);
+		if (dst)
+			memcpy(dst, *rows, w0 * h0 * 4);
+		*/
 		free(rows);
 		free(p_frame);
 	}
@@ -144,8 +156,8 @@ void load_png(const void* buffer, int sizebytes)
 
 
 
-void* PngReader::ReadImage(int& width,
-	int& height,
+void* PngReader::ReadImage(int& width2,
+	int& height2,
 	int& nchannels,
 	bool& has_animation,
 	int& frame_count,
@@ -154,7 +166,15 @@ void* PngReader::ReadImage(int& width,
 	const void* buffer,
 	int sizebytes)
 {
+	dst = NULL;
 	load_png(buffer, sizebytes);
+	width2 = w0;
+	height2 = h0;
+	has_animation = false;
+	nchannels = 4;
+	frame_count = 1;
+	
+	return dst;
 	return NULL;
 	outOfMemory = false;
 	width = height = 0;
