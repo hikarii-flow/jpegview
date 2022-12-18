@@ -134,7 +134,7 @@
     </Manifest>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+xcopy "$(ProjectDir)libjxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -182,7 +182,7 @@ xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </Manifest>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+xcopy "$(ProjectDir)libjxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -235,7 +235,7 @@ xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </Manifest>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+xcopy "$(ProjectDir)libjxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -286,7 +286,7 @@ xcopy "$(ProjectDir)jxl\bin\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </Manifest>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)jxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
+xcopy "$(ProjectDir)libjxl\bin64\*.dll" "$(ProjectDir)$(OutDir)" /Y /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
