@@ -318,6 +318,7 @@
     <ClCompile Include="MultiMonitorSupport.cpp" />
     <ClCompile Include="NLS.cpp" />
     <ClCompile Include="ParameterDB.cpp" />
+    <ClCompile Include="PNGWrapper.cpp" />
     <ClCompile Include="PrintDlg.cpp" />
     <ClCompile Include="PrintImage.cpp" />
     <ClCompile Include="ProcessingThreadPool.cpp" />
@@ -402,6 +403,7 @@
     <ClInclude Include="MultiMonitorSupport.h" />
     <ClInclude Include="NLS.h" />
     <ClInclude Include="ParameterDB.h" />
+    <ClInclude Include="PNGWrapper.h" />
     <ClInclude Include="PrintDlg.h" />
     <ClInclude Include="PrintImage.h" />
     <ClInclude Include="PrintParameters.h" />
