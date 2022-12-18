@@ -95,6 +95,7 @@ private:
 	void DeleteCachedGDIBitmap();
 
 	void ProcessReadJPEGRequest(CRequest * request);
+	void ProcessReadPNGRequest(CRequest * request);
 	void ProcessReadBMPRequest(CRequest * request);
 	void ProcessReadTGARequest(CRequest * request);
 	void ProcessReadWEBPRequest(CRequest * request);

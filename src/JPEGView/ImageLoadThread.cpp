@@ -11,6 +11,7 @@
 #include "BasicProcessing.h"
 #include "dcraw_mod.h"
 #include "TJPEGWrapper.h"
+#include "PNGWrapper.h"
 #include "MaxImageDef.h"
 
 using namespace Gdiplus;
@@ -272,6 +273,10 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedGDIBitmap();
 			ProcessReadWICRequest(&rq);
 			break;
+		case IF_PNG:
+			DeleteCachedGDIBitmap();
+			ProcessReadPNGRequest(&rq);
+			break;
 		default:
 			// try with GDI+
 			ProcessReadGDIPlusRequest(&rq);
@@ -401,6 +406,55 @@ void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
 	::CloseHandle(hFile);
 	if (pBuffer) ::GlobalUnlock(hFileBuffer);
 	if (hFileBuffer) ::GlobalFree(hFileBuffer);
+}
+
+void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
+	bool bUseCachedDecoder = false;
+	/*
+	const wchar_t* sFileName;
+	sFileName = (const wchar_t*)request->FileName;
+	if (sFileName != m_sLastJxlFileName) {
+		DeleteCachedJxlDecoder();
+	}
+	else {
+		bUseCachedDecoder = true;
+	}
+	*/
+
+	HANDLE hFile;
+	if (!bUseCachedDecoder) {
+		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			return;
+		}
+	}
+	char* pBuffer = NULL;
+	unsigned int nFileSize;
+	unsigned int nNumBytesRead;
+	if (!bUseCachedDecoder) {
+		// Don't read too huge files
+		nFileSize = ::GetFileSize(hFile, NULL);
+		if (nFileSize > MAX_WEBP_FILE_SIZE) {
+			request->OutOfMemory = true;
+			::CloseHandle(hFile);
+			return;
+		}
+
+		pBuffer = new(std::nothrow) char[nFileSize];
+		if (pBuffer == NULL) {
+			request->OutOfMemory = true;
+			::CloseHandle(hFile);
+			return;
+		}
+	} else {
+		nFileSize = 0; // to avoid compiler warnings, not used
+	}
+
+	int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+	bool bHasAnimation;
+	if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+		uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+	}
 }
 
 void CImageLoadThread::ProcessReadBMPRequest(CRequest * request) {
