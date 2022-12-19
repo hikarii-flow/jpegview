@@ -13,6 +13,8 @@
 #include "TJPEGWrapper.h"
 #include "PNGWrapper.h"
 #include "MaxImageDef.h"
+#include <io.h>
+#include <fcntl.h>
 
 using namespace Gdiplus;
 
@@ -452,9 +454,19 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 
 	int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
 	bool bHasAnimation;
-	if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-		uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
-		request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, false, 0, 1, 0);
+	int fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
+	if (fd != -1) { //(bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+		FILE* f = _fdopen(fd, "r");
+		if (f != 0) {
+			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
+			// fclose(f);
+			if (pPixelData)
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+		} else {
+			_close(fd);
+		}
+	} else {
+		CloseHandle(hFile);
 	}
 }
 
