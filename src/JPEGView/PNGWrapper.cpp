@@ -3,6 +3,7 @@
 #include "PNGWrapper.h"
 #include "png.h"
 #include "MaxImageDef.h"
+#include <vector>
 
 unsigned int    width, height, channels, rowbytes;
 unsigned int    w0, h0;
@@ -11,6 +12,12 @@ unsigned int    cur = 0;
 unsigned char* p_frame = NULL;
 png_bytepp      rows = NULL;
 void* dst = NULL;
+struct framedata {
+	void* mem;
+	int w;
+	int h;
+};
+std::vector<framedata> mm;
 
 void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int channels)
 {
@@ -20,17 +27,22 @@ void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int
 	{
 		unsigned short tgah[9] = { 0,2,0,0,0,0,(unsigned short)w,(unsigned short)h,0x0820 };
 		sprintf(szOut, "test_load8_%03d.tga", cur);
-		if ((f2 = fopen(szOut, "wb")) != 0)
+		if (true) //(f2 = fopen(szOut, "wb")) != 0)
 		{
 			unsigned int j;
-			if (fwrite(&tgah, 1, 18, f2) != 18) return;
-			free(dst);
+			// if (fwrite(&tgah, 1, 18, f2) != 18) return;
+			// free(dst);
 			dst = malloc(channels * w * h);
+			struct framedata fd;
+			fd.h = h;
+			fd.w = w;
+			fd.mem = dst;
+			mm.push_back(fd);
 			for (j = 0; j < h; j++) {
 				memcpy((char*)dst+j*channels*w, rows[j], channels*w);
-				if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
+				// if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
 			}
-			fclose(f2);
+			// fclose(f2);
 		}
 		printf("  [libpng");
 #ifdef PNG_APNG_SUPPORTED
@@ -155,7 +167,7 @@ void load_png(const void* buffer, int sizebytes)
 }
 
 
-
+int counter = 0;
 void* PngReader::ReadImage(int& width2,
 	int& height2,
 	int& nchannels,
@@ -167,12 +179,20 @@ void* PngReader::ReadImage(int& width2,
 	int sizebytes)
 {
 	dst = NULL;
-	load_png(buffer, sizebytes);
+	if (mm.size() == 0)
+		load_png(buffer, sizebytes);
 	width2 = w0;
 	height2 = h0;
-	has_animation = false;
+	struct framedata fd = { 0 };
+	while (fd.w != 57)
+		fd = mm.at(counter++ % mm.size());
+	width2 = fd.w;
+	height2 = fd.h;
+	has_animation = true; // false;
 	nchannels = 4;
-	frame_count = 1;
+	frame_count = 2;
+	frame_time = 100;
+	return fd.mem;
 	
 	return dst;
 	return NULL;
