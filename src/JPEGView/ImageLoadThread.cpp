@@ -445,50 +445,55 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 		}
 	}
 	char* pBuffer = NULL;
-	unsigned int nFileSize;
-	unsigned int nNumBytesRead;
-	if (!bUseCachedDecoder) {
-		// Don't read too huge files
-		nFileSize = ::GetFileSize(hFile, NULL);
-		if (nFileSize > MAX_WEBP_FILE_SIZE) {
-			request->OutOfMemory = true;
-			::CloseHandle(hFile);
-			return;
-		}
+	try {
+		unsigned int nFileSize;
+		unsigned int nNumBytesRead;
+		if (!bUseCachedDecoder) {
+			// Don't read too huge files
+			nFileSize = ::GetFileSize(hFile, NULL);
+			if (nFileSize > MAX_WEBP_FILE_SIZE) {
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
+			}
 
-		pBuffer = new(std::nothrow) char[nFileSize];
-		if (pBuffer == NULL) {
-			request->OutOfMemory = true;
-			::CloseHandle(hFile);
-			return;
-		}
-	} else {
-		nFileSize = 0; // to avoid compiler warnings, not used
-	}
-
-	int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
-	bool bHasAnimation;
-	int fd;
-	if (!bUseCachedDecoder)
-		fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
-	if (bUseCachedDecoder || fd != -1) { //(bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-		FILE* f = NULL;
-		if (!bUseCachedDecoder)
-			f = _fdopen(fd, "r");
-		if (bUseCachedDecoder || f != NULL) {
-			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
-			if (!bUseCachedDecoder)
-				fclose(f);
-			if (pPixelData) {
-				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
-				if (bHasAnimation)
-					m_sLastPngFileName = sFileName;
+			pBuffer = new(std::nothrow) char[nFileSize];
+			if (pBuffer == NULL) {
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
 			}
 		} else {
-			_close(fd);
+			nFileSize = 0; // to avoid compiler warnings, not used
 		}
-	} else {
-		::CloseHandle(hFile);
+
+		int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+		bool bHasAnimation;
+		int fd;
+		if (!bUseCachedDecoder)
+			fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
+		if (bUseCachedDecoder || fd != -1) {
+			FILE* f = NULL;
+			if (!bUseCachedDecoder)
+				f = _fdopen(fd, "r");
+			if (bUseCachedDecoder || f != NULL) {
+				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
+				if (!bUseCachedDecoder)
+					fclose(f);
+				if (pPixelData) {
+					request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+					if (bHasAnimation)
+						m_sLastPngFileName = sFileName;
+				}
+			} else {
+				_close(fd);
+			}
+		} else {
+			::CloseHandle(hFile);
+		}
+	} catch (...) {
+		delete request->Image;
+		request->Image = NULL;
 	}
 }
 
