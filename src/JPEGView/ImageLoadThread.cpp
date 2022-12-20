@@ -481,9 +481,13 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 				if (!bUseCachedDecoder)
 					fclose(f);
 				if (pPixelData) {
-					request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 					if (bHasAnimation)
 						m_sLastPngFileName = sFileName;
+					// Multiply alpha value into each AABBGGRR pixel
+					uint32* pImage32 = (uint32*)pPixelData;
+					for (int i = 0; i < nWidth * nHeight; i++)
+						*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
+					request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 				}
 			} else {
 				_close(fd);
