@@ -133,8 +133,7 @@
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)libpng-apng\bin\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -181,8 +180,7 @@ xcopy "$(ProjectDir)libpng-apng\bin\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</C
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)libpng-apng\bin64\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -234,8 +232,7 @@ xcopy "$(ProjectDir)libpng-apng\bin64\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D<
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)libpng-apng\bin\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -285,8 +282,7 @@ xcopy "$(ProjectDir)libpng-apng\bin\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</C
       <EnableDPIAwareness>true</EnableDPIAwareness>
     </Manifest>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D
-xcopy "$(ProjectDir)libpng-apng\bin64\*.dll" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
+      <Command>xcopy "$(ProjectDir)Config\*" "$(ProjectDir)\$(OutDir)" /Y /C /D</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
