@@ -200,6 +200,7 @@ CImageLoadThread::CImageLoadThread(void) : CWorkThread(true) {
 
 CImageLoadThread::~CImageLoadThread(void) {
 	DeleteCachedGDIBitmap();
+	DeleteCachedPngDecoder();
 }
 
 int CImageLoadThread::AsyncLoad(LPCTSTR strFileName, int nFrameIndex, const CProcessParams & processParams, HWND targetWnd, HANDLE eventFinished) {
@@ -244,6 +245,9 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 		if (rq.FileName == m_sLastFileName) {
 			DeleteCachedGDIBitmap();
 		}
+		if (rq.FileName = m_sLastPngFileName) {
+			DeleteCachedPngDecoder();
+		}
 		return;
 	}
 
@@ -253,26 +257,32 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 	switch (GetImageFormat(rq.FileName)) {
 		case IF_JPEG :
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadJPEGRequest(&rq);
 			break;
 		case IF_WindowsBMP :
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadBMPRequest(&rq);
 			break;
 		case IF_TGA :
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadTGARequest(&rq);
 			break;
 		case IF_WEBP:
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadWEBPRequest(&rq);
 			break;
 		case IF_CameraRAW:
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadRAWRequest(&rq);
 			break;
 		case IF_WIC:
 			DeleteCachedGDIBitmap();
+			DeleteCachedPngDecoder();
 			ProcessReadWICRequest(&rq);
 			break;
 		case IF_PNG:
@@ -281,6 +291,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			break;
 		default:
 			// try with GDI+
+			DeleteCachedPngDecoder();
 			ProcessReadGDIPlusRequest(&rq);
 			break;
 	}
@@ -327,6 +338,11 @@ void CImageLoadThread::DeleteCachedGDIBitmap() {
 	}
 	m_pLastBitmap = NULL;
 	m_sLastFileName.Empty();
+}
+
+void CImageLoadThread::DeleteCachedPngDecoder() {
+	PngReader::DeleteCache();
+	m_sLastPngFileName.Empty();
 }
 
 void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
@@ -412,16 +428,14 @@ void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
 
 void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 	bool bUseCachedDecoder = false;
-	/*
 	const wchar_t* sFileName;
 	sFileName = (const wchar_t*)request->FileName;
-	if (sFileName != m_sLastJxlFileName) {
-		DeleteCachedJxlDecoder();
+	if (sFileName != m_sLastPngFileName) {
+		DeleteCachedPngDecoder();
 	}
 	else {
 		bUseCachedDecoder = true;
 	}
-	*/
 
 	HANDLE hFile;
 	if (!bUseCachedDecoder) {
@@ -454,19 +468,27 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 
 	int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
 	bool bHasAnimation;
-	int fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
-	if (fd != -1) { //(bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-		FILE* f = _fdopen(fd, "r");
-		if (f != 0) {
+	int fd;
+	if (!bUseCachedDecoder)
+		fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
+	if (bUseCachedDecoder || fd != -1) { //(bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+		FILE* f = NULL;
+		if (!bUseCachedDecoder)
+			f = _fdopen(fd, "r");
+		if (bUseCachedDecoder || f != NULL) {
 			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
-			// fclose(f);
-			if (pPixelData)
+			if (!bUseCachedDecoder)
+				fclose(f);
+			if (pPixelData) {
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+				if (bHasAnimation)
+					m_sLastPngFileName = sFileName;
+			}
 		} else {
 			_close(fd);
 		}
 	} else {
-		CloseHandle(hFile);
+		::CloseHandle(hFile);
 	}
 }
 

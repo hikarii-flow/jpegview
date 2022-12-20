@@ -57,12 +57,12 @@ std::vector<framedata> frames;
 void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int channels, unsigned int frame, unsigned short delay_num, unsigned short delay_den)
 {
     char szOut[512];
-    FILE* f2;
+    // FILE* f2;
     if (channels == 4)
     {
         unsigned short tgah[9] = { 0,2,0,0,0,0,(unsigned short)w,(unsigned short)h,0x0820 };
         sprintf(szOut, "test_load4_%03d.tga", frame);
-        if ((f2 = fopen(szOut, "wb")) != 0)
+        if (true) //(f2 = fopen(szOut, "wb")) != 0)
         {
             unsigned int j;
             struct framedata fd;
@@ -74,13 +74,13 @@ void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int
             fd.channels = channels;
             if (!fd.pixels)
                 return;
-            if (fwrite(&tgah, 1, 18, f2) != 18) return;
+            // if (fwrite(&tgah, 1, 18, f2) != 18) return;
             for (j = 0; j < h; j++) {
                 memcpy((char*)fd.pixels + j * w * channels, rows[j], w * channels);
-                if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
+                // if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
             }
             frames.push_back(fd);
-            fclose(f2);
+            // fclose(f2);
         }
         printf("  [libpng");
 #ifdef PNG_APNG_SUPPORTED
@@ -150,7 +150,7 @@ bool load_png(FILE* f1, bool& outOfMemory)
                 if (setjmp(png_jmpbuf(png_ptr)))
                 {
                     png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-                    fclose(f1);
+                    // fclose(f1);
                     return false;
                 }
                 png_init_io(png_ptr, f1);
@@ -167,7 +167,7 @@ bool load_png(FILE* f1, bool& outOfMemory)
                 height = png_get_image_height(png_ptr, info_ptr);
                 if (abs((double)width * height) > MAX_IMAGE_PIXELS) {
                     png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-                    fclose(f1);
+                    // fclose(f1);
                     outOfMemory = true;
                     return false;
                 }
@@ -251,12 +251,13 @@ bool load_png(FILE* f1, bool& outOfMemory)
             }
             png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
         }
-        fclose(f1);
+        // fclose(f1);
     }
     return true;
 }
 
 unsigned int counter = 0;
+void* last = NULL;
 
 void* PngReader::ReadImage(int& width2,
 	int& height2,
@@ -285,11 +286,13 @@ void* PngReader::ReadImage(int& width2,
     // "If the the value of the numerator is 0 the decoder should render the next frame as quickly as possible"
     frame_time = max((int)(1000.0 * fd.delay_num / fd.delay_den), 1);
 
-    void* ret = NULL;
-    if (ret = malloc(fd.width * fd.height * fd.channels))
-        memcpy(ret, fd.pixels, fd.width * fd.height * fd.channels);
+    unsigned char* pPixelData = NULL;
+    pPixelData = new(std::nothrow) unsigned char[fd.width * fd.height * fd.channels];
+    if (pPixelData)
+        memcpy(pPixelData, fd.pixels, fd.width * fd.height * fd.channels);
     
-    return ret;
+    return pPixelData;
+
     /*
 	dst = NULL;
 	load_png(buffer, sizebytes);
@@ -370,3 +373,11 @@ void* PngReader::ReadImage(int& width2,
 	// return pPixelData;
 }
 
+void PngReader::DeleteCache() {
+    // JxlDecoderDestroy(cached_jxl_decoder.get());
+    // JxlResizableParallelRunnerDestroy(cached_jxl_runner.get());
+    for (struct framedata fd : frames) {
+        free(fd.pixels);
+    }
+    frames.clear();
+}
