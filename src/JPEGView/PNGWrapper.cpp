@@ -99,22 +99,21 @@ void BlendOver(unsigned char** rows_dst, unsigned char** rows_src, unsigned int 
 		{
 			if (sp[3] == 255)
 				memcpy(dp, sp, 4);
-			else
-				if (sp[3] != 0)
+			else if (sp[3] != 0)
+			{
+				if (dp[3] != 0)
 				{
-					if (dp[3] != 0)
-					{
-						u = sp[3] * 255;
-						v = (255 - sp[3]) * dp[3];
-						al = u + v;
-						dp[0] = (sp[0] * u + dp[0] * v) / al;
-						dp[1] = (sp[1] * u + dp[1] * v) / al;
-						dp[2] = (sp[2] * u + dp[2] * v) / al;
-						dp[3] = al / 255;
-					}
-					else
-						memcpy(dp, sp, 4);
+					u = sp[3] * 255;
+					v = (255 - sp[3]) * dp[3];
+					al = u + v;
+					dp[0] = (sp[0] * u + dp[0] * v) / al;
+					dp[1] = (sp[1] * u + dp[1] * v) / al;
+					dp[2] = (sp[2] * u + dp[2] * v) / al;
+					dp[3] = al / 255;
 				}
+				else
+					memcpy(dp, sp, 4);
+			}
 		}
 	}
 }
@@ -123,42 +122,42 @@ void BlendOver(unsigned char** rows_dst, unsigned char** rows_src, unsigned int 
 void doStuff()
 {
 	unsigned int j;
-	#ifdef PNG_APNG_SUPPORTED
-		if (png_get_valid(env.png_ptr, env.info_ptr, PNG_INFO_acTL))
-		{
-			png_read_frame_head(env.png_ptr, env.info_ptr);
-			png_get_next_frame_fcTL(env.png_ptr, env.info_ptr, &env.w0, &env.h0, &env.x0, &env.y0, &env.delay_num, &env.delay_den, &env.dop, &env.bop);
-		}
-		if (env.frame_index == env.first)
-		{
-			env.bop = PNG_BLEND_OP_SOURCE;
-			if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
-				env.dop = PNG_DISPOSE_OP_BACKGROUND;
-		}
-	#endif
-		png_read_image(env.png_ptr, env.rows_frame);
-
-	#ifdef PNG_APNG_SUPPORTED
+#ifdef PNG_APNG_SUPPORTED
+	if (png_get_valid(env.png_ptr, env.info_ptr, PNG_INFO_acTL))
+	{
+		png_read_frame_head(env.png_ptr, env.info_ptr);
+		png_get_next_frame_fcTL(env.png_ptr, env.info_ptr, &env.w0, &env.h0, &env.x0, &env.y0, &env.delay_num, &env.delay_den, &env.dop, &env.bop);
+	}
+	if (env.frame_index == env.first)
+	{
+		env.bop = PNG_BLEND_OP_SOURCE;
 		if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
-			memcpy(env.p_temp, env.p_image, env.size);
+			env.dop = PNG_DISPOSE_OP_BACKGROUND;
+	}
+#endif
+	png_read_image(env.png_ptr, env.rows_frame);
 
-		if (env.bop == PNG_BLEND_OP_OVER)
-			BlendOver(env.rows_image, env.rows_frame, env.x0, env.y0, env.w0, env.h0);
-		else
-	#endif
+#ifdef PNG_APNG_SUPPORTED
+	if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
+		memcpy(env.p_temp, env.p_image, env.size);
+
+	if (env.bop == PNG_BLEND_OP_OVER)
+		BlendOver(env.rows_image, env.rows_frame, env.x0, env.y0, env.w0, env.h0);
+	else
+#endif
+		for (j = 0; j < env.h0; j++)
+			memcpy(env.rows_image[j + env.y0] + env.x0 * 4, env.rows_frame[j], env.w0 * 4);
+
+	save_tga(env.rows_image, env.width, env.height, env.channels);
+
+#ifdef PNG_APNG_SUPPORTED
+	if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
+		memcpy(env.p_image, env.p_temp, env.size);
+	else
+		if (env.dop == PNG_DISPOSE_OP_BACKGROUND)
 			for (j = 0; j < env.h0; j++)
-				memcpy(env.rows_image[j + env.y0] + env.x0 * 4, env.rows_frame[j], env.w0 * 4);
-
-		save_tga(env.rows_image, env.width, env.height, env.channels);
-
-	#ifdef PNG_APNG_SUPPORTED
-		if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
-			memcpy(env.p_image, env.p_temp, env.size);
-		else
-			if (env.dop == PNG_DISPOSE_OP_BACKGROUND)
-				for (j = 0; j < env.h0; j++)
-					memset(env.rows_image[j + env.y0] + env.x0 * 4, 0, env.w0 * 4);
-	#endif
+				memset(env.rows_image[j + env.y0] + env.x0 * 4, 0, env.w0 * 4);
+#endif
 		env.frame_index++;
 		env.frame_index %= env.frame_count;
 }
@@ -177,102 +176,97 @@ void read_data_fn(png_structp png_ptr, png_bytep outbuffer, png_size_t sizebytes
 
 png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 {
-	if (true)
+	unsigned int    width, height, channels, rowbytes, size, i, j;
+	png_bytepp      rows_image;
+	png_bytepp      rows_frame;
+	unsigned char*  p_image;
+	unsigned char*  p_frame;
+	unsigned char*  p_temp;
+
+
+	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	png_infop   info_ptr = png_create_info_struct(png_ptr); //TODO cleanup png_ptr if this fails
+	if (png_ptr && info_ptr)
 	{
-		unsigned int    width, height, channels, rowbytes, size, i, j;
-		png_bytepp      rows_image;
-		png_bytepp      rows_frame;
-		unsigned char*  p_image;
-		unsigned char*  p_frame;
-		unsigned char*  p_temp;
-
-		if (true)
+		if (setjmp(png_jmpbuf(png_ptr)))
 		{
-			png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-			png_infop   info_ptr = png_create_info_struct(png_ptr); //TODO cleanup png_ptr if this fails
-			if (png_ptr && info_ptr)
-			{
-				if (setjmp(png_jmpbuf(png_ptr)))
-				{
-					png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-					return 0;
-				}
-				// skip png signature since we already checked it
-				png_set_sig_bytes(png_ptr, 8);
-				// custom read function so we can read from memory
-				png_set_read_fn(png_ptr, (char*)buffer, read_data_fn);
-				png_read_info(png_ptr, info_ptr);
-				png_set_expand(png_ptr);
-				png_set_strip_16(png_ptr);
-				png_set_gray_to_rgb(png_ptr);
-				png_set_add_alpha(png_ptr, 0xff, PNG_FILLER_AFTER);
-				png_set_bgr(png_ptr);
-				(void)png_set_interlace_handling(png_ptr);
-				png_read_update_info(png_ptr, info_ptr);
-				width = png_get_image_width(png_ptr, info_ptr);
-				height = png_get_image_height(png_ptr, info_ptr);
-				if (abs((double)width * height) > MAX_IMAGE_PIXELS) {
-					png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-					outOfMemory = true;
-					return 0;
-				}
-				channels = png_get_channels(png_ptr, info_ptr);
-				rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-				size = height * rowbytes;
-				p_image = (unsigned char*)malloc(size);
-				p_frame = (unsigned char*)malloc(size);
-				p_temp = (unsigned char*)malloc(size);
-				rows_image = (png_bytepp)malloc(height * sizeof(png_bytep));
-				rows_frame = (png_bytepp)malloc(height * sizeof(png_bytep));
-				if (p_image && p_frame && p_temp && rows_image && rows_frame)
-				{
-					png_uint_32     frames = 1;
-					png_uint_32     x0 = 0;
-					png_uint_32     y0 = 0;
-					png_uint_32     w0 = width;
-					png_uint_32     h0 = height;
-#ifdef PNG_APNG_SUPPORTED
-					png_uint_32     plays = 0;
-					unsigned short  delay_num = 1;
-					unsigned short  delay_den = 10;
-					unsigned char   dop = 0;
-					unsigned char   bop = 0;
-					unsigned int    first = (png_get_first_frame_is_hidden(png_ptr, info_ptr) != 0) ? 1 : 0;
-					if (png_get_valid(png_ptr, info_ptr, PNG_INFO_acTL))
-						png_get_acTL(png_ptr, info_ptr, &frames, &plays);
-#endif
-					for (j = 0; j < height; j++)
-						rows_image[j] = p_image + j * rowbytes;
-
-					for (j = 0; j < height; j++)
-						rows_frame[j] = p_frame + j * rowbytes;
-
-					env.bop = bop;
-					env.channels = channels;
-					env.delay_den = delay_den;
-					env.delay_num = delay_num;
-					env.dop = dop;
-					env.first = first;
-					env.h0 = h0;
-					env.height = height;
-					env.info_ptr = info_ptr;
-					env.png_ptr = png_ptr;
-					env.p_image = p_image;
-					env.p_frame = p_frame;
-					env.p_temp = p_temp;
-					env.rows_frame = rows_frame;
-					env.rows_image = rows_image;
-					env.size = size;
-					env.w0 = w0;
-					env.width = width;
-					env.x0 = x0;
-					env.y0 = y0;
-					env.frame_count = frames;
-					return frames;
-				}
-				png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-			}
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+			return 0;
 		}
+		// skip png signature since we already checked it
+		png_set_sig_bytes(png_ptr, 8);
+		// custom read function so we can read from memory
+		png_set_read_fn(png_ptr, (char*)buffer, read_data_fn);
+		png_read_info(png_ptr, info_ptr);
+		png_set_expand(png_ptr);
+		png_set_strip_16(png_ptr);
+		png_set_gray_to_rgb(png_ptr);
+		png_set_add_alpha(png_ptr, 0xff, PNG_FILLER_AFTER);
+		png_set_bgr(png_ptr);
+		(void)png_set_interlace_handling(png_ptr);
+		png_read_update_info(png_ptr, info_ptr);
+		width = png_get_image_width(png_ptr, info_ptr);
+		height = png_get_image_height(png_ptr, info_ptr);
+		if (abs((double)width * height) > MAX_IMAGE_PIXELS) {
+			png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+			outOfMemory = true;
+			return 0;
+		}
+		channels = png_get_channels(png_ptr, info_ptr);
+		rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+		size = height * rowbytes;
+		p_image = (unsigned char*)malloc(size);
+		p_frame = (unsigned char*)malloc(size);
+		p_temp = (unsigned char*)malloc(size);
+		rows_image = (png_bytepp)malloc(height * sizeof(png_bytep));
+		rows_frame = (png_bytepp)malloc(height * sizeof(png_bytep));
+		if (p_image && p_frame && p_temp && rows_image && rows_frame)
+		{
+			png_uint_32     frames = 1;
+			png_uint_32     x0 = 0;
+			png_uint_32     y0 = 0;
+			png_uint_32     w0 = width;
+			png_uint_32     h0 = height;
+#ifdef PNG_APNG_SUPPORTED
+			png_uint_32     plays = 0;
+			unsigned short  delay_num = 1;
+			unsigned short  delay_den = 10;
+			unsigned char   dop = 0;
+			unsigned char   bop = 0;
+			unsigned int    first = (png_get_first_frame_is_hidden(png_ptr, info_ptr) != 0) ? 1 : 0;
+			if (png_get_valid(png_ptr, info_ptr, PNG_INFO_acTL))
+				png_get_acTL(png_ptr, info_ptr, &frames, &plays);
+#endif
+			for (j = 0; j < height; j++)
+				rows_image[j] = p_image + j * rowbytes;
+
+			for (j = 0; j < height; j++)
+				rows_frame[j] = p_frame + j * rowbytes;
+
+			env.bop = bop;
+			env.channels = channels;
+			env.delay_den = delay_den;
+			env.delay_num = delay_num;
+			env.dop = dop;
+			env.first = first;
+			env.h0 = h0;
+			env.height = height;
+			env.info_ptr = info_ptr;
+			env.png_ptr = png_ptr;
+			env.p_image = p_image;
+			env.p_frame = p_frame;
+			env.p_temp = p_temp;
+			env.rows_frame = rows_frame;
+			env.rows_image = rows_image;
+			env.size = size;
+			env.w0 = w0;
+			env.width = width;
+			env.x0 = x0;
+			env.y0 = y0;
+			env.frame_count = frames;
+			return frames;
+		}
+		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 	}
 	return 0;
 }
@@ -329,10 +323,9 @@ void* PngReader::ReadImage(int& width2,
 		}
 
 	}
-	
-	if (true) {
-		doStuff();
-	}
+
+	doStuff();
+
 	frame_count = env.frame_count;
 	width2 = env.width;
 	height2 = env.height;
