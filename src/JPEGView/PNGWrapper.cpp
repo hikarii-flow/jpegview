@@ -120,49 +120,46 @@ void BlendOver(unsigned char** rows_dst, unsigned char** rows_src, unsigned int 
 }
 #endif
 
-void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uint_32& h0, png_uint_32& x0, png_uint_32& y0,
-	unsigned short& delay_num, unsigned short& delay_den, unsigned char& dop, unsigned char& bop, unsigned int& first,
-	png_bytepp& rows_image, png_bytepp& rows_frame, unsigned char*& p_image, unsigned char*& p_temp, unsigned int& size,
-	unsigned int& width, unsigned int& height, unsigned int& channels, unsigned int& i)
+void doStuff()
 {
 	unsigned int j;
 	#ifdef PNG_APNG_SUPPORTED
-		if (png_get_valid(png_ptr, info_ptr, PNG_INFO_acTL))
+		if (png_get_valid(env.png_ptr, env.info_ptr, PNG_INFO_acTL))
 		{
-			png_read_frame_head(png_ptr, info_ptr);
-			png_get_next_frame_fcTL(png_ptr, info_ptr, &w0, &h0, &x0, &y0, &delay_num, &delay_den, &dop, &bop);
+			png_read_frame_head(env.png_ptr, env.info_ptr);
+			png_get_next_frame_fcTL(env.png_ptr, env.info_ptr, &env.w0, &env.h0, &env.x0, &env.y0, &env.delay_num, &env.delay_den, &env.dop, &env.bop);
 		}
-		if (i == first)
+		if (env.frame_index == env.first)
 		{
-			bop = PNG_BLEND_OP_SOURCE;
-			if (dop == PNG_DISPOSE_OP_PREVIOUS)
-				dop = PNG_DISPOSE_OP_BACKGROUND;
+			env.bop = PNG_BLEND_OP_SOURCE;
+			if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
+				env.dop = PNG_DISPOSE_OP_BACKGROUND;
 		}
 	#endif
-		png_read_image(png_ptr, rows_frame);
+		png_read_image(env.png_ptr, env.rows_frame);
 
 	#ifdef PNG_APNG_SUPPORTED
-		if (dop == PNG_DISPOSE_OP_PREVIOUS)
-			memcpy(p_temp, p_image, size);
+		if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
+			memcpy(env.p_temp, env.p_image, env.size);
 
-		if (bop == PNG_BLEND_OP_OVER)
-			BlendOver(rows_image, rows_frame, x0, y0, w0, h0);
+		if (env.bop == PNG_BLEND_OP_OVER)
+			BlendOver(env.rows_image, env.rows_frame, env.x0, env.y0, env.w0, env.h0);
 		else
 	#endif
-			for (j = 0; j < h0; j++)
-				memcpy(rows_image[j + y0] + x0 * 4, rows_frame[j], w0 * 4);
+			for (j = 0; j < env.h0; j++)
+				memcpy(env.rows_image[j + env.y0] + env.x0 * 4, env.rows_frame[j], env.w0 * 4);
 
-		save_tga(rows_image, width, height, channels);
+		save_tga(env.rows_image, env.width, env.height, env.channels);
 
 	#ifdef PNG_APNG_SUPPORTED
-		if (dop == PNG_DISPOSE_OP_PREVIOUS)
-			memcpy(p_image, p_temp, size);
+		if (env.dop == PNG_DISPOSE_OP_PREVIOUS)
+			memcpy(env.p_image, env.p_temp, env.size);
 		else
-			if (dop == PNG_DISPOSE_OP_BACKGROUND)
-				for (j = 0; j < h0; j++)
-					memset(rows_image[j + y0] + x0 * 4, 0, w0 * 4);
+			if (env.dop == PNG_DISPOSE_OP_BACKGROUND)
+				for (j = 0; j < env.h0; j++)
+					memset(env.rows_image[j + env.y0] + env.x0 * 4, 0, env.w0 * 4);
 	#endif
-		i++;
+		env.frame_index++;
 		env.frame_index %= env.frame_count;
 }
 
@@ -280,23 +277,22 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 	return 0;
 }
 
-bool unload_png(png_structp& png_ptr, png_infop& info_ptr, png_bytepp& rows_frame, png_bytepp& rows_image,
-	unsigned char* p_temp, unsigned char* p_frame, unsigned char* p_image) 
+bool unload_png() 
 {
-	png_read_end(png_ptr, info_ptr);
-	free(rows_frame);
-	free(rows_image);
-	free(p_temp);
-	free(p_frame);
-	free(p_image);
-	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+	png_read_end(env.png_ptr, env.info_ptr);
+	free(env.rows_frame);
+	free(env.rows_image);
+	free(env.p_temp);
+	free(env.p_frame);
+	free(env.p_image);
+	png_destroy_read_struct(&env.png_ptr, &env.info_ptr, NULL);
 	return true;
 }
 
 void DeleteCacheInternal(bool freeBuffer)
 {
 	if (env.png_ptr) {
-		unload_png(env.png_ptr, env.info_ptr, env.rows_frame, env.rows_image, env.p_temp, env.p_frame, env.p_image);
+		unload_png();
 		env = { 0 };
 	}
 	if (freeBuffer) {
@@ -335,8 +331,7 @@ void* PngReader::ReadImage(int& width2,
 	}
 	
 	if (true) {
-		doStuff(env.png_ptr, env.info_ptr, env.w0, env.h0, env.x0, env.y0, env.delay_num, env.delay_den, env.dop, env.bop, env.first,
-			env.rows_image, env.rows_frame, env.p_image, env.p_temp, env.size, env.width, env.height, env.channels, env.frame_index);
+		doStuff();
 	}
 	frame_count = env.frame_count;
 	width2 = env.width;
