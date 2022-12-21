@@ -471,7 +471,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 		bool bHasAnimation;
 		if (true) {
 			if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, request->FrameIndex, pBuffer, nFileSize);
+				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
 				if (!bUseCachedDecoder)
 					; // fclose(f);
 				if (pPixelData) {
