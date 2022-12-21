@@ -200,7 +200,18 @@ void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uin
 	#endif
 }
 
-png_uint_32 load_png(FILE* f1, bool& outOfMemory)
+int offset = 0;
+void read_data_fn(png_structp png_ptr, png_bytep outbuffer, png_size_t sizebytes)
+{
+	png_voidp io_ptr = png_get_io_ptr(png_ptr);
+	if (io_ptr == NULL)
+		return;   // add custom error handling here
+
+	memcpy(outbuffer, (char*)io_ptr + offset, sizebytes);
+	offset += sizebytes;
+}
+
+png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 {
 	//FILE* f1;
 
@@ -214,10 +225,10 @@ png_uint_32 load_png(FILE* f1, bool& outOfMemory)
 		unsigned char*  p_temp;
 		unsigned char   sig[8];
 
-		if (fread(sig, 1, 8, f1) == 8 && png_sig_cmp(sig, 0, 8) == 0)
+		if (true) //fread(sig, 1, 8, f1) == 8 && png_sig_cmp(sig, 0, 8) == 0)
 		{
 			png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-			png_infop   info_ptr = png_create_info_struct(png_ptr);
+			png_infop   info_ptr = png_create_info_struct(png_ptr); //TODO cleanup png_ptr if this fails
 			if (png_ptr && info_ptr)
 			{
 				if (setjmp(png_jmpbuf(png_ptr)))
@@ -226,8 +237,9 @@ png_uint_32 load_png(FILE* f1, bool& outOfMemory)
 					// fclose(f1);
 					return 0;
 				}
-				png_init_io(png_ptr, f1);
+				// png_init_io(png_ptr, f1);
 				png_set_sig_bytes(png_ptr, 8);
+				png_set_read_fn(png_ptr, (char*)buffer+8, read_data_fn);
 				png_read_info(png_ptr, info_ptr);
 				png_set_expand(png_ptr);
 				png_set_strip_16(png_ptr);
@@ -335,10 +347,12 @@ void* PngReader::ReadImage(int& width2,
 	int& frame_count,
 	int& frame_time,
 	bool& outOfMemory,
-	FILE* file)
+	FILE* file,
+	void* buffer,
+	size_t sizebytes)
 {
 	// fmemopen(buffer, sizebytes, )
-	if (frames.size() == 0 && (!(cached_file = file) || !load_png(file, outOfMemory))) {
+	if (frames.size() == 0 && (!load_png(buffer, sizebytes, outOfMemory))) {
 		cached_file = NULL;
 		return NULL;
 	}

@@ -476,8 +476,8 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 			FILE* f = NULL;
 			if (!bUseCachedDecoder)
 				f = _fdopen(fd, "r");
-			if (bUseCachedDecoder || f != NULL) {
-				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
+			if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f, pBuffer, nFileSize);
 				if (!bUseCachedDecoder)
 					; // fclose(f);
 				if (pPixelData) {

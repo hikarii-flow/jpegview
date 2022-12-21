@@ -12,8 +12,9 @@ public:
 		int& frame_count, // number of frames
 		int& frame_time, // frame duration in milliseconds
 		bool& outOfMemory, // set to true when no memory to read image
-		FILE* file // memory address containing jpeg compressed data.
-		); // size of jpeg compressed data
+		FILE* file, // memory address containing jpeg compressed data.
+		void* buffer,
+		size_t sizebytes); // size of jpeg compressed data
 
 	static void DeleteCache();
 };
