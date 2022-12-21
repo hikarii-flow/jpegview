@@ -274,16 +274,14 @@ bool BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 
 void DeleteCacheInternal(bool freeBuffer)
 {
-	if (env.png_ptr) {
-		// png_read_end(env.png_ptr, env.info_ptr);
-		free(env.rows_frame);
-		free(env.rows_image);
-		free(env.p_temp);
-		free(env.p_frame);
-		free(env.p_image);
-		png_destroy_read_struct(&env.png_ptr, &env.info_ptr, NULL);
-		env = { 0 };
-	}
+	// png_read_end(env.png_ptr, env.info_ptr);
+	free(env.rows_frame);
+	free(env.rows_image);
+	free(env.p_temp);
+	free(env.p_frame);
+	free(env.p_image);
+	png_destroy_read_struct(&env.png_ptr, &env.info_ptr, NULL);
+	env = { 0 };
 	if (freeBuffer) {
 		free(cached_buffer);
 		cached_buffer = NULL;
