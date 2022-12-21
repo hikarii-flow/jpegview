@@ -479,7 +479,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 			if (bUseCachedDecoder || f != NULL) {
 				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f);
 				if (!bUseCachedDecoder)
-					fclose(f);
+					; // fclose(f);
 				if (pPixelData) {
 					if (bHasAnimation)
 						m_sLastPngFileName = sFileName;
