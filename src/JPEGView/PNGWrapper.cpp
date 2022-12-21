@@ -2,7 +2,6 @@
 
 #include "PNGWrapper.h"
 #include "MaxImageDef.h"
-#include <vector>
 
 /*
  * Modified from "load4apng.c"
@@ -41,55 +40,47 @@
 #include <string.h>
 #include "png.h"
 
-struct framedata
-{
+struct iterData {
+	png_structp png_ptr;
+	png_infop info_ptr;
+	png_uint_32 w0;
+	png_uint_32 h0;
+	png_uint_32 x0;
+	png_uint_32 y0;
+	unsigned short delay_num;
+	unsigned short delay_den;
+	unsigned char dop;
+	unsigned char bop;
+	unsigned int first;
+	png_bytepp rows_image;
+	png_bytepp rows_frame;
+	unsigned char* p_image;
+	unsigned char* p_frame;
+	unsigned char* p_temp;
+	unsigned int size;
+	unsigned int width;
+	unsigned int height;
+	unsigned int channels;
+	unsigned int frame_index;
+	png_uint_32 frame_count;
 	void* pixels;
-	// size_t size;
-	unsigned short  delay_num;
-	unsigned short  delay_den;
-	unsigned int    width;
-	unsigned int    height;
-	unsigned int    channels;
+	int buffer_offset;
 };
 
-std::vector<framedata> frames;
+struct iterData env = { 0 };
+size_t cached_buffer_size = 0;
+void* cached_buffer = NULL;
 
-void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int channels, unsigned int frame, unsigned short delay_num, unsigned short delay_den)
+void save_tga(unsigned char** rows, unsigned int w, unsigned int h, unsigned int channels)
 {
-	char szOut[512];
-	// FILE* f2;
 	if (channels == 4)
 	{
-		unsigned short tgah[9] = { 0,2,0,0,0,0,(unsigned short)w,(unsigned short)h,0x0820 };
-		sprintf(szOut, "test_load4_%03d.tga", frame);
-		if (true) //(f2 = fopen(szOut, "wb")) != 0)
-		{
-			unsigned int j;
-			struct framedata fd;
-			fd.delay_num = delay_num;
-			fd.delay_den = delay_den;
-			fd.pixels = malloc(w * h * channels);
-			if (fd.pixels == NULL)
-				return; // TODO
-			fd.width = w;
-			fd.height = h;
-			fd.channels = channels;
-			if (!fd.pixels)
-				return;
-			// if (fwrite(&tgah, 1, 18, f2) != 18) return;
-			for (j = 0; j < h; j++) {
-				memcpy((char*)fd.pixels + j * w * channels, rows[j], w * channels);
-				// if (fwrite(rows[h - 1 - j], channels, w, f2) != w) return;
-			}
-			frames.push_back(fd);
-			// fclose(f2);
+		env.pixels = malloc(w * h * channels);
+		if (env.pixels == NULL)
+			return;
+		for (unsigned int j = 0; j < h; j++) {
+			memcpy((char*)env.pixels + j * w * channels, rows[j], w * channels);
 		}
-		printf("  [libpng");
-#ifdef PNG_APNG_SUPPORTED
-		printf("+apng");
-#endif
-		printf(" %s]:  ", PNG_LIBPNG_VER_STRING);
-		printf("%s : %dx%d   %c\n", szOut, w, h, frame > 0 ? '*' : ' ');
 	}
 }
 
@@ -129,37 +120,12 @@ void BlendOver(unsigned char** rows_dst, unsigned char** rows_src, unsigned int 
 }
 #endif
 
-struct iterData {
-	png_structp png_ptr;
-	png_infop info_ptr;
-	png_uint_32 w0;
-	png_uint_32 h0;
-	png_uint_32 x0;
-	png_uint_32 y0;
-	unsigned short delay_num;
-	unsigned short delay_den;
-	unsigned char dop;
-	unsigned char bop;
-	unsigned int first;
-	png_bytepp rows_image;
-	png_bytepp rows_frame;
-	unsigned char* p_image;
-	unsigned char* p_frame;
-	unsigned char* p_temp;
-	unsigned int size;
-	unsigned int width;
-	unsigned int height;
-	unsigned int channels;
-	png_uint_32 frame_count;
-	
-};
 
-struct iterData env = { 0 };
 
 void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uint_32& h0, png_uint_32& x0, png_uint_32& y0,
 	unsigned short& delay_num, unsigned short& delay_den, unsigned char& dop, unsigned char& bop, unsigned int& first,
-	png_bytepp& rows_image, png_bytepp& rows_frame, unsigned char* p_image, unsigned char* p_temp, unsigned int& size,
-	unsigned int& width, unsigned int& height, unsigned int& channels, unsigned int i)
+	png_bytepp& rows_image, png_bytepp& rows_frame, unsigned char*& p_image, unsigned char*& p_temp, unsigned int& size,
+	unsigned int& width, unsigned int& height, unsigned int& channels, unsigned int& i)
 {
 	unsigned int j;
 	#ifdef PNG_APNG_SUPPORTED
@@ -188,7 +154,7 @@ void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uin
 			for (j = 0; j < h0; j++)
 				memcpy(rows_image[j + y0] + x0 * 4, rows_frame[j], w0 * 4);
 
-		save_tga(rows_image, width, height, channels, i, delay_num, delay_den);
+		save_tga(rows_image, width, height, channels);
 
 	#ifdef PNG_APNG_SUPPORTED
 		if (dop == PNG_DISPOSE_OP_PREVIOUS)
@@ -198,28 +164,25 @@ void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uin
 				for (j = 0; j < h0; j++)
 					memset(rows_image[j + y0] + x0 * 4, 0, w0 * 4);
 	#endif
+		i++;
+		env.frame_index %= env.frame_count;
 }
 
-int offset = 0;
-size_t cached_file_size = 0;
 void read_data_fn(png_structp png_ptr, png_bytep outbuffer, png_size_t sizebytes)
 {
 	png_voidp io_ptr = png_get_io_ptr(png_ptr);
 	if (io_ptr == NULL)
 		return;   // add custom error handling here
-	if (offset + sizebytes > cached_file_size - 8)
+	if (env.buffer_offset + sizebytes > cached_buffer_size - 8)
 		return;   // add custom error handling here
 
-
-	memcpy(outbuffer, (char*)io_ptr + offset, sizebytes);
-	offset += sizebytes;
+	memcpy(outbuffer, (char*)io_ptr + env.buffer_offset, sizebytes);
+	env.buffer_offset += sizebytes;
 }
 
 png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 {
-	//FILE* f1;
-
-	if (true) //(f1 = fopen(szImage, "rb")) != 0)
+	if (true)
 	{
 		unsigned int    width, height, channels, rowbytes, size, i, j;
 		png_bytepp      rows_image;
@@ -229,7 +192,7 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 		unsigned char*  p_temp;
 		unsigned char   sig[8];
 
-		if (true) //fread(sig, 1, 8, f1) == 8 && png_sig_cmp(sig, 0, 8) == 0)
+		if (true)
 		{
 			png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 			png_infop   info_ptr = png_create_info_struct(png_ptr); //TODO cleanup png_ptr if this fails
@@ -238,12 +201,9 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 				if (setjmp(png_jmpbuf(png_ptr)))
 				{
 					png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-					// fclose(f1);
 					return 0;
 				}
-				// png_init_io(png_ptr, f1);
 				png_set_sig_bytes(png_ptr, 8);
-				offset = 0;
 				png_set_read_fn(png_ptr, (char*)buffer+8, read_data_fn);
 				png_read_info(png_ptr, info_ptr);
 				png_set_expand(png_ptr);
@@ -257,7 +217,6 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 				height = png_get_image_height(png_ptr, info_ptr);
 				if (abs((double)width * height) > MAX_IMAGE_PIXELS) {
 					png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-					// fclose(f1);
 					outOfMemory = true;
 					return 0;
 				}
@@ -322,12 +281,6 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 	return 0;
 }
 
-
-/*                    for (i = 0; i < frames; i++)
-                    {
-                        doStuff();
-                    }*/
-
 bool unload_png(png_structp& png_ptr, png_infop& info_ptr, png_bytepp& rows_frame, png_bytepp& rows_image,
 	unsigned char* p_temp, unsigned char* p_frame, unsigned char* p_image) 
 {
@@ -341,26 +294,16 @@ bool unload_png(png_structp& png_ptr, png_infop& info_ptr, png_bytepp& rows_fram
 	return true;
 }
 
-unsigned int counter = 0;
-void* last = NULL;
-bool started = false;
-void* cached_buffer = NULL;
-
-
 void DeleteCacheInternal(bool freeBuffer)
 {
 	if (env.png_ptr) {
 		unload_png(env.png_ptr, env.info_ptr, env.rows_frame, env.rows_image, env.p_temp, env.p_frame, env.p_image);
 		env = { 0 };
 	}
-	for (struct framedata fd : frames) {
-		; // free(fd.pixels);
-	}
 	if (freeBuffer) {
 		free(cached_buffer);
 		cached_buffer = NULL;
 	}
-	frames.clear();
 }
 
 void* PngReader::ReadImage(int& width2,
@@ -376,12 +319,14 @@ void* PngReader::ReadImage(int& width2,
 {
 	if (!cached_buffer) {
 		cached_buffer = malloc(sizebytes);
+		if (!cached_buffer)
+			return NULL;
 		memcpy(cached_buffer, buffer, sizebytes);
-		cached_file_size = sizebytes;
+		cached_buffer_size = sizebytes;
 	}
 	buffer = cached_buffer;
-	sizebytes = cached_file_size;
-	if (!env.png_ptr || counter == 0) {
+	sizebytes = cached_buffer_size;
+	if (!env.png_ptr || env.frame_index == 0) {
 		DeleteCacheInternal(false);
 		if (!buffer || !load_png(buffer, sizebytes, outOfMemory)) {
 			
@@ -392,118 +337,26 @@ void* PngReader::ReadImage(int& width2,
 	
 	if (true) {
 		doStuff(env.png_ptr, env.info_ptr, env.w0, env.h0, env.x0, env.y0, env.delay_num, env.delay_den, env.dop, env.bop, env.first,
-			env.rows_image, env.rows_frame, env.p_image, env.p_temp, env.size, env.width, env.height, env.channels, counter);
+			env.rows_image, env.rows_frame, env.p_image, env.p_temp, env.size, env.width, env.height, env.channels, env.frame_index);
 	}
 	frame_count = env.frame_count;
-	struct framedata fd = frames.at(min(frames.size() - 1, counter % frame_count));
-	frames.clear();
-	counter = (counter + 1) % frame_count;
-	width2 = fd.width;
-	height2 = fd.height;
-	nchannels = fd.channels;
+	width2 = env.width;
+	height2 = env.height;
+	nchannels = env.channels;
 	
 	has_animation = (frame_count > 1);
 
 	// https://wiki.mozilla.org/APNG_Specification
 	// "If the denominator is 0, it is to be treated as if it were 100"
-	if (!fd.delay_den)
-		fd.delay_den = 100; 
+	if (!env.delay_den)
+		env.delay_den = 100; 
 	// "If the the value of the numerator is 0 the decoder should render the next frame as quickly as possible"
-	frame_time = max((int)(1000.0 * fd.delay_num / fd.delay_den), 1);
+	frame_time = max((int)(1000.0 * env.delay_num / env.delay_den), 1);
 
-	unsigned char* pPixelData = NULL;
-/*	pPixelData = new(std::nothrow) unsigned char[fd.width * fd.height * fd.channels];
-	if (pPixelData)
-		memcpy(pPixelData, fd.pixels, fd.width * fd.height * fd.channels);
-		*/
-	pPixelData = (unsigned char*)fd.pixels;
 	
-	return pPixelData;
-
-	/*
-	dst = NULL;
-	load_png(buffer, sizebytes);
-	width2 = w0;
-	height2 = h0;
-	has_animation = false;
-	nchannels = 4;
-	frame_count = 1;
-	
-	return dst;
-	return NULL;
-	outOfMemory = false;
-	width = height = 0;
-	nchannels = 4;
-	has_animation = false;
-	unsigned char* pPixelData = NULL;
-	*/
-
-	//png_image image;
-	//png_image_begin_read_from_memory(&image, buffer, sizebytes);
-	//image.format = PNG_FORMAT_BGRA;
-	//png_bytep png_bytes;
-	//png_bytes = (png_bytep)malloc(PNG_IMAGE_SIZE(image));
-	//if (!png_image_finish_read(&image, NULL, png_bytes, 0, NULL))
-	//	return NULL;
-
-
-
-	// unsigned int    width, height, depth, coltype, rowbytes, size, i, j;
-	/*
-	unsigned int    depth, coltype, rowbytes, size, i, j;
-	png_bytepp      rows;
-	unsigned char* p_frame;
-	unsigned char   sig[8];
-	memcpy(sig, buffer, 8);
-	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	
-	if (!png_ptr)
-		return NULL;
-	png_infop info_ptr = png_create_info_struct(png_ptr);
-	if (!info_ptr)
-		return NULL;
-	if (setjmp(png_jmpbuf(png_ptr)))
-	{
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-		return NULL;
-	}
-	png_structp read_png_ptr = png_ptr;
-	png_infop read_info_ptr = info_ptr;
-	png_set_progressive_read_fn(png_ptr, NULL, info_fn, row_fn, end_fn);
-
-	png_process_data(png_ptr, info_ptr, (png_bytep)buffer, sizebytes);
-	png_set_sig_bytes(read_png_ptr, 8);
-	png_read_info(read_png_ptr, read_info_ptr);
-	png_set_expand(read_png_ptr);
-	png_set_strip_16(read_png_ptr);
-	//png_set_gray_to_rgb(read_png_ptr);                        /* make it RGB */
-	//png_set_add_alpha(read_png_ptr, 0xff, PNG_FILLER_AFTER);  /* make it RGBA */
-	/*(void)png_set_interlace_handling(read_png_ptr);
-	png_read_update_info(read_png_ptr, read_info_ptr);
-	width = png_get_image_width(read_png_ptr, read_info_ptr);
-	height = png_get_image_height(read_png_ptr, read_info_ptr);
-	depth = png_get_bit_depth(read_png_ptr, read_info_ptr);
-	coltype = png_get_color_type(read_png_ptr, read_info_ptr);
-	rowbytes = png_get_rowbytes(read_png_ptr, read_info_ptr);
-	*/
-	/*
-	png_process_data(png_ptr, info_ptr, (png_bytep)buffer, sizebytes);
-	frame_count = png_get_num_frames(png_ptr, info_ptr);
-	if (frame_count < 1)
-		return NULL;
-	png_read_frame_head(png_ptr, info_ptr);
-	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-	//png_read_info()
-	//png_read_info();
-	//png_read_frame_head(image, )
-	*/
-	// return pPixelData;
+	return env.pixels;
 }
 
-
-
 void PngReader::DeleteCache() {
-	// JxlDecoderDestroy(cached_jxl_decoder.get());
-	// JxlResizableParallelRunnerDestroy(cached_jxl_runner.get());
 	DeleteCacheInternal(true);
 }
