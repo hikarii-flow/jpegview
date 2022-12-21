@@ -176,7 +176,7 @@ bool BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 
 
 	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	png_infop   info_ptr = png_create_info_struct(png_ptr); //TODO cleanup png_ptr if this fails
+	png_infop   info_ptr = png_create_info_struct(png_ptr);
 	if (png_ptr && info_ptr)
 	{
 		if (setjmp(png_jmpbuf(png_ptr)))
@@ -262,8 +262,13 @@ bool BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 			env.frame_count = frames;
 			return frames > 0;
 		}
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		free(p_image);
+		free(rows_image);
+		free(rows_frame);
+		free(p_frame);
+		free(p_temp);
 	}
+	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 	return false;
 }
 
