@@ -154,7 +154,7 @@ struct iterData {
 	
 };
 
-struct iterData env;
+struct iterData env = { 0 };
 
 void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uint_32& h0, png_uint_32& x0, png_uint_32& y0,
 	unsigned short& delay_num, unsigned short& delay_den, unsigned char& dop, unsigned char& bop, unsigned int& first,
@@ -201,11 +201,15 @@ void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uin
 }
 
 int offset = 0;
+size_t cached_file_size = 0;
 void read_data_fn(png_structp png_ptr, png_bytep outbuffer, png_size_t sizebytes)
 {
 	png_voidp io_ptr = png_get_io_ptr(png_ptr);
 	if (io_ptr == NULL)
 		return;   // add custom error handling here
+	if (offset + sizebytes > cached_file_size - 8)
+		return;   // add custom error handling here
+
 
 	memcpy(outbuffer, (char*)io_ptr + offset, sizebytes);
 	offset += sizebytes;
@@ -239,6 +243,7 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 				}
 				// png_init_io(png_ptr, f1);
 				png_set_sig_bytes(png_ptr, 8);
+				offset = 0;
 				png_set_read_fn(png_ptr, (char*)buffer+8, read_data_fn);
 				png_read_info(png_ptr, info_ptr);
 				png_set_expand(png_ptr);
@@ -338,7 +343,25 @@ bool unload_png(png_structp& png_ptr, png_infop& info_ptr, png_bytepp& rows_fram
 
 unsigned int counter = 0;
 void* last = NULL;
-FILE* cached_file = NULL;
+bool started = false;
+void* cached_buffer = NULL;
+
+
+void DeleteCacheInternal(bool freeBuffer)
+{
+	if (env.png_ptr) {
+		unload_png(env.png_ptr, env.info_ptr, env.rows_frame, env.rows_image, env.p_temp, env.p_frame, env.p_image);
+		env = { 0 };
+	}
+	for (struct framedata fd : frames) {
+		; // free(fd.pixels);
+	}
+	if (freeBuffer) {
+		free(cached_buffer);
+		cached_buffer = NULL;
+	}
+	frames.clear();
+}
 
 void* PngReader::ReadImage(int& width2,
 	int& height2,
@@ -347,26 +370,34 @@ void* PngReader::ReadImage(int& width2,
 	int& frame_count,
 	int& frame_time,
 	bool& outOfMemory,
-	FILE* file,
+	int frame_index,
 	void* buffer,
 	size_t sizebytes)
 {
-	// fmemopen(buffer, sizebytes, )
-	if (frames.size() == 0 && (!load_png(buffer, sizebytes, outOfMemory))) {
-		cached_file = NULL;
-		return NULL;
+	if (!cached_buffer) {
+		cached_buffer = malloc(sizebytes);
+		memcpy(cached_buffer, buffer, sizebytes);
+		cached_file_size = sizebytes;
 	}
-	if (frames.size() < env.frame_count) {
+	buffer = cached_buffer;
+	sizebytes = cached_file_size;
+	if (!env.png_ptr || counter == 0) {
+		DeleteCacheInternal(false);
+		if (!buffer || !load_png(buffer, sizebytes, outOfMemory)) {
+			
+			return NULL;
+		}
+
+	}
+	
+	if (true) {
 		doStuff(env.png_ptr, env.info_ptr, env.w0, env.h0, env.x0, env.y0, env.delay_num, env.delay_den, env.dop, env.bop, env.first,
 			env.rows_image, env.rows_frame, env.p_image, env.p_temp, env.size, env.width, env.height, env.channels, counter);
-	} else if (cached_file) {
-		unload_png(env.png_ptr, env.info_ptr, env.rows_frame, env.rows_image, env.p_temp, env.p_frame, env.p_image);
-		fclose(cached_file);
-		cached_file = NULL;
 	}
 	frame_count = env.frame_count;
 	struct framedata fd = frames.at(min(frames.size() - 1, counter % frame_count));
-	counter++;
+	frames.clear();
+	counter = (counter + 1) % frame_count;
 	width2 = fd.width;
 	height2 = fd.height;
 	nchannels = fd.channels;
@@ -381,9 +412,11 @@ void* PngReader::ReadImage(int& width2,
 	frame_time = max((int)(1000.0 * fd.delay_num / fd.delay_den), 1);
 
 	unsigned char* pPixelData = NULL;
-	pPixelData = new(std::nothrow) unsigned char[fd.width * fd.height * fd.channels];
+/*	pPixelData = new(std::nothrow) unsigned char[fd.width * fd.height * fd.channels];
 	if (pPixelData)
 		memcpy(pPixelData, fd.pixels, fd.width * fd.height * fd.channels);
+		*/
+	pPixelData = (unsigned char*)fd.pixels;
 	
 	return pPixelData;
 
@@ -467,16 +500,10 @@ void* PngReader::ReadImage(int& width2,
 	// return pPixelData;
 }
 
+
+
 void PngReader::DeleteCache() {
 	// JxlDecoderDestroy(cached_jxl_decoder.get());
 	// JxlResizableParallelRunnerDestroy(cached_jxl_runner.get());
-	if (cached_file) {
-		unload_png(env.png_ptr, env.info_ptr, env.rows_frame, env.rows_image, env.p_temp, env.p_frame, env.p_image);
-		fclose(cached_file);
-		cached_file = NULL;
-	}
-	for (struct framedata fd : frames) {
-		free(fd.pixels);
-	}
-	frames.clear();
+	DeleteCacheInternal(true);
 }

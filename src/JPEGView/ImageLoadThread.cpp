@@ -469,15 +469,9 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 
 		int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
 		bool bHasAnimation;
-		int fd;
-		if (!bUseCachedDecoder)
-			fd = _open_osfhandle((intptr_t)hFile, _O_RDONLY);
-		if (bUseCachedDecoder || fd != -1) {
-			FILE* f = NULL;
-			if (!bUseCachedDecoder)
-				f = _fdopen(fd, "r");
+		if (true) {
 			if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, f, pBuffer, nFileSize);
+				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, request->FrameIndex, pBuffer, nFileSize);
 				if (!bUseCachedDecoder)
 					; // fclose(f);
 				if (pPixelData) {
@@ -489,15 +483,15 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 						*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 					request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 				}
-			} else {
-				_close(fd);
 			}
-		} else {
-			::CloseHandle(hFile);
 		}
 	} catch (...) {
 		delete request->Image;
 		request->Image = NULL;
+	}
+	if (!bUseCachedDecoder) {
+		::CloseHandle(hFile);
+		delete[] pBuffer;
 	}
 }
 
