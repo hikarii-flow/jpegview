@@ -618,7 +618,6 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest * request) {
 
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 			} else {
-				delete[] pPixelData;
 				DeleteCachedJxlDecoder();
 			}
 		}
