@@ -427,6 +427,7 @@ void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
 }
 
 void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
+	bool bSuccess = false;
 	bool bUseCachedDecoder = false;
 	const wchar_t* sFileName;
 	sFileName = (const wchar_t*)request->FileName;
@@ -452,47 +453,46 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 			// Don't read too huge files
 			nFileSize = ::GetFileSize(hFile, NULL);
 			if (nFileSize > MAX_WEBP_FILE_SIZE) {
-				request->OutOfMemory = true;
 				::CloseHandle(hFile);
-				return;
+				return ProcessReadGDIPlusRequest(request);
 			}
 
 			pBuffer = new(std::nothrow) char[nFileSize];
 			if (pBuffer == NULL) {
-				request->OutOfMemory = true;
 				::CloseHandle(hFile);
-				return;
+				return ProcessReadGDIPlusRequest(request);
 			}
 		} else {
 			nFileSize = 0; // to avoid compiler warnings, not used
 		}
+		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+			bool bHasAnimation;
+			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+			if (pPixelData != NULL) {
+				if (bHasAnimation)
+					m_sLastPngFileName = sFileName;
+				// Multiply alpha value into each AABBGGRR pixel
+				uint32* pImage32 = (uint32*)pPixelData;
+				for (int i = 0; i < nWidth * nHeight; i++)
+					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
-		int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
-		bool bHasAnimation;
-		if (true) {
-			if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-				uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
-				if (!bUseCachedDecoder)
-					; // fclose(f);
-				if (pPixelData) {
-					if (bHasAnimation)
-						m_sLastPngFileName = sFileName;
-					// Multiply alpha value into each AABBGGRR pixel
-					uint32* pImage32 = (uint32*)pPixelData;
-					for (int i = 0; i < nWidth * nHeight; i++)
-						*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
-					request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
-				}
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+			} else {
+				DeleteCachedPngDecoder();
 			}
 		}
+		bSuccess = true;
 	} catch (...) {
-		delete request->Image;
-		request->Image = NULL;
+		// delete request->Image;
+		// request->Image = NULL;
 	}
 	if (!bUseCachedDecoder) {
 		::CloseHandle(hFile);
 		delete[] pBuffer;
 	}
+	if (!bSuccess)
+		return ProcessReadGDIPlusRequest(request);
 }
 
 void CImageLoadThread::ProcessReadBMPRequest(CRequest * request) {
