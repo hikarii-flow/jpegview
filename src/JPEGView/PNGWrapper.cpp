@@ -320,8 +320,10 @@ void* PngReader::ReadImage(int& width,
 
 	}
 
+	bool read_two = env.frame_index < env.first;
 	void* pixels = ReadNextFrame();
-
+	if (pixels && read_two)
+		pixels = ReadNextFrame();
 	
 	width = env.width;
 	height = env.height;
