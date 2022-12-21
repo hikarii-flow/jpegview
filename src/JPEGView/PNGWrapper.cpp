@@ -275,7 +275,7 @@ bool BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 void DeleteCacheInternal(bool freeBuffer)
 {
 	if (env.png_ptr) {
-		png_read_end(env.png_ptr, env.info_ptr);
+		// png_read_end(env.png_ptr, env.info_ptr);
 		free(env.rows_frame);
 		free(env.rows_image);
 		free(env.p_temp);
@@ -301,6 +301,8 @@ void* PngReader::ReadImage(int& width,
 	size_t sizebytes)
 {
 	if (!cached_buffer) {
+		if (sizebytes < 8)
+			return NULL;
 		cached_buffer = malloc(sizebytes-8);
 		if (!cached_buffer)
 			return NULL;
