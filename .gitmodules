@@ -7,3 +7,6 @@
 [submodule "extras/libwebp"]
 	path = extras/libwebp
 	url = https://chromium.googlesource.com/webm/libwebp
+[submodule "extras/libpng"]
+	path = extras/libpng
+	url = https://github.com/glennrp/libpng
