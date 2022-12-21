@@ -7,7 +7,7 @@
  * Modified from "load4apng.c"
  * Original: https://sourceforge.net/projects/apng/files/libpng/examples/
  *
- * loads APNG file, caches all frames to memory (32bpp).
+ * loads APNG from memory one frame at a time  (32bpp), restarts when done
  * including frames composition.
  *
  * needs apng-patched libpng.
@@ -120,8 +120,6 @@ void BlendOver(unsigned char** rows_dst, unsigned char** rows_src, unsigned int 
 }
 #endif
 
-
-
 void doStuff(png_structp& png_ptr, png_infop& info_ptr, png_uint_32& w0, png_uint_32& h0, png_uint_32& x0, png_uint_32& y0,
 	unsigned short& delay_num, unsigned short& delay_den, unsigned char& dop, unsigned char& bop, unsigned int& first,
 	png_bytepp& rows_image, png_bytepp& rows_frame, unsigned char*& p_image, unsigned char*& p_temp, unsigned int& size,
@@ -173,7 +171,7 @@ void read_data_fn(png_structp png_ptr, png_bytep outbuffer, png_size_t sizebytes
 	png_voidp io_ptr = png_get_io_ptr(png_ptr);
 	if (io_ptr == NULL)
 		return;   // add custom error handling here
-	if (env.buffer_offset + sizebytes > cached_buffer_size - 8)
+	if (env.buffer_offset + sizebytes > cached_buffer_size)
 		return;   // add custom error handling here
 
 	memcpy(outbuffer, (char*)io_ptr + env.buffer_offset, sizebytes);
@@ -190,7 +188,6 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 		unsigned char*  p_image;
 		unsigned char*  p_frame;
 		unsigned char*  p_temp;
-		unsigned char   sig[8];
 
 		if (true)
 		{
@@ -203,8 +200,10 @@ png_uint_32 load_png(void* buffer, size_t sizebytes, bool& outOfMemory)
 					png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 					return 0;
 				}
+				// skip png signature since we already checked it
 				png_set_sig_bytes(png_ptr, 8);
-				png_set_read_fn(png_ptr, (char*)buffer+8, read_data_fn);
+				// custom read function so we can read from memory
+				png_set_read_fn(png_ptr, (char*)buffer, read_data_fn);
 				png_read_info(png_ptr, info_ptr);
 				png_set_expand(png_ptr);
 				png_set_strip_16(png_ptr);
@@ -318,10 +317,11 @@ void* PngReader::ReadImage(int& width2,
 	size_t sizebytes)
 {
 	if (!cached_buffer) {
-		cached_buffer = malloc(sizebytes);
+		cached_buffer = malloc(sizebytes-8);
 		if (!cached_buffer)
 			return NULL;
-		memcpy(cached_buffer, buffer, sizebytes);
+		// copy everything except the PNG signature (first 8 bytes)
+		memcpy(cached_buffer, (char*)buffer+8, sizebytes-8);
 		cached_buffer_size = sizebytes;
 	}
 	buffer = cached_buffer;
@@ -329,7 +329,6 @@ void* PngReader::ReadImage(int& width2,
 	if (!env.png_ptr || env.frame_index == 0) {
 		DeleteCacheInternal(false);
 		if (!buffer || !load_png(buffer, sizebytes, outOfMemory)) {
-			
 			return NULL;
 		}
 
