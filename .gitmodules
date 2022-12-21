@@ -7,3 +7,6 @@
 [submodule "extras/libwebp"]
 	path = extras/libwebp
 	url = https://chromium.googlesource.com/webm/libwebp
+[submodule "extras/libjxl"]
+	path = extras/libjxl
+	url = https://github.com/libjxl/libjxl/
