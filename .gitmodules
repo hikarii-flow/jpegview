@@ -11,5 +11,5 @@
 	path = extras/libpng
 	url = https://github.com/glennrp/libpng
 [submodule "extras/libpng-apng/zlib"]
-	path = extras/libpng-apng/zlib
+	path = extras/zlib
 	url = https://github.com/madler/zlib
