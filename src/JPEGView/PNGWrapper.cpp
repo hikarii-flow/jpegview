@@ -239,12 +239,15 @@ bool BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 			for (j = 0; j < height; j++)
 				rows_frame[j] = p_frame + j * rowbytes;
 
+#ifdef PNG_APNG_SUPPORTED
 			env.bop = bop;
-			env.channels = channels;
+			// env.plays = plays
 			env.delay_den = delay_den;
 			env.delay_num = delay_num;
 			env.dop = dop;
 			env.first = first;
+#endif
+			env.channels = channels;
 			env.h0 = h0;
 			env.height = height;
 			env.info_ptr = info_ptr;
