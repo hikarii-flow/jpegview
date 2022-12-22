@@ -461,7 +461,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 		if (!bUseCachedDecoder) {
 			// Don't read too huge files
 			nFileSize = ::GetFileSize(hFile, NULL);
-			if (nFileSize > MAX_WEBP_FILE_SIZE) {
+			if (nFileSize > MAX_PNG_FILE_SIZE) {
 				::CloseHandle(hFile);
 				return ProcessReadGDIPlusRequest(request);
 			}
