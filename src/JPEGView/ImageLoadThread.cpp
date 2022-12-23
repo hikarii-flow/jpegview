@@ -583,6 +583,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest * request) {
 		}
 	}
 	char* pBuffer = NULL;
+	UINT nPrevErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 	try {
 		unsigned int nFileSize;
 		unsigned int nNumBytesRead;
@@ -625,6 +626,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest * request) {
 		delete request->Image;
 		request->Image = NULL;
 	}
+	SetErrorMode(nPrevErrorMode);
 	if (!bUseCachedDecoder) {
 		::CloseHandle(hFile);
 		// delete[] pBuffer;
