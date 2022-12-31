@@ -88,7 +88,10 @@ bool DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* 
 			JxlFrameHeader header;
 			JxlDecoderGetFrameHeader(cached_jxl_decoder.get(), &header);
 			JxlAnimationHeader animation = cached_jxl_info.animation;
-			frame_time = 1000.0 * header.duration * animation.tps_denominator / animation.tps_numerator;
+			if (animation.tps_numerator)
+				frame_time = 1000.0 * header.duration * animation.tps_denominator / animation.tps_numerator;
+			else
+				frame_time = 0;
 		} else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
 			size_t buffer_size;
 			if (JXL_DEC_SUCCESS !=
@@ -175,6 +178,7 @@ void JxlReader::DeleteCache() {
 	free(cached_jxl_data);
 	cached_jxl_data = NULL;
 	cached_jxl_data_size = 0;
+	// Setting these to NULL will automatically destroy them
 	cached_jxl_decoder = NULL;
 	cached_jxl_runner = NULL;
 }
