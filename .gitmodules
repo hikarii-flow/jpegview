@@ -7,3 +7,12 @@
 [submodule "extras/libwebp"]
 	path = extras/libwebp
 	url = https://chromium.googlesource.com/webm/libwebp
+[submodule "extras/libheif"]
+	path = extras/libheif
+	url = https://github.com/strukturag/libheif
+[submodule "extras/dav1d"]
+	path = extras/dav1d
+	url = https://code.videolan.org/videolan/dav1d
+[submodule "extras/libde265"]
+	path = extras/libde265
+	url = https://github.com/strukturag/libde265
