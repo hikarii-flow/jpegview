@@ -665,8 +665,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 	sFileName = (const wchar_t*)request->FileName;
 	if (sFileName != m_sLastJxlFileName) {
 		DeleteCachedJxlDecoder();
-	}
-	else {
+	} else {
 		bUseCachedDecoder = true;
 	}
 
@@ -697,8 +696,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 				::CloseHandle(hFile);
 				return;
 			}
-		}
-		else {
+		} else {
 			nFileSize = 0; // to avoid compiler warnings, not used
 		}
 		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
@@ -714,8 +712,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
-			}
-			else {
+			} else {
 				DeleteCachedJxlDecoder();
 			}
 		}
