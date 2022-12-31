@@ -89,16 +89,19 @@ private:
 
 	Gdiplus::Bitmap* m_pLastBitmap; // Last read GDI+ bitmap, cached to speed up GIF animations
 	CString m_sLastFileName; // Only for GDI+ files
-  CString m_sLastJxlFileName; // Only for animated JPEG XL files
-  CString m_sLastWebpFileName; // Only for WebP files
+	CString m_sLastWebpFileName; // Only for animated WebP files
+	CString m_sLastPngFileName; // Only for animated PNG files
+	CString m_sLastJxlFileName; // Only for animated JPEG XL files
 
 	virtual void ProcessRequest(CRequestBase& request);
 	virtual void AfterFinishProcess(CRequestBase& request);
 	void DeleteCachedGDIBitmap();
-  void DeleteCachedJxlDecoder();
 	void DeleteCachedWebpDecoder();
+	void DeleteCachedPngDecoder();
+	void DeleteCachedJxlDecoder();
 
 	void ProcessReadJPEGRequest(CRequest * request);
+	void ProcessReadPNGRequest(CRequest * request);
 	void ProcessReadBMPRequest(CRequest * request);
 	void ProcessReadTGARequest(CRequest * request);
 	void ProcessReadWEBPRequest(CRequest * request);
