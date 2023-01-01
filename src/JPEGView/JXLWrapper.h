@@ -4,7 +4,7 @@
 class JxlReader
 {
 public:
-	// Returns data in the form BGRBGR**********BGR000 where the zeros are padding to 4 byte boundary
+	// Returns data in 4 byte BGRA
 	static void* ReadImage(int& width,   // width of the image loaded.
 		int& height,  // height of the image loaded.
 		int& bpp,     // BYTES (not bits) PER PIXEL.
