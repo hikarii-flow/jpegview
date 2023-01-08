@@ -98,8 +98,8 @@ static EImageFormat GetImageFormat(LPCTSTR sFileName) {
 	else if (header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 &&
 		memcmp(header+4, "ftyp", 4) == 0 &&
 		(
-			memcmp(header+8, "avif", 4) == 0 ||
-			memcmp(header+8, "avis", 4) == 0 ||
+			// memcmp(header+8, "avif", 4) == 0 ||
+			// memcmp(header+8, "avis", 4) == 0 ||
 			memcmp(header+8, "heic", 4) == 0 ||
 			memcmp(header+8, "heix", 4) == 0 ||
 			memcmp(header+8, "hevc", 4) == 0 ||

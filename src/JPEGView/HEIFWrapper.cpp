@@ -1,5 +1,5 @@
-
 #include "stdafx.h"
+
 #include "HEIFWrapper.h"
 #include "libheif/heif_cxx.h"
 #include "MaxImageDef.h"
@@ -20,16 +20,19 @@ void * HeifReader::ReadImage(int &width,
 	heif::Context context;
 	context.read_from_memory_without_copy(buffer, sizebytes);
 	heif::ImageHandle handle = context.get_primary_image_handle();
-	// context.get_image_handle(0);
-	height = handle.get_height();
-	width = handle.get_width();
+	// height = handle.get_height();
+	// width = handle.get_width();
 	heif::Image image = handle.decode_image(heif_colorspace_RGB, heif_chroma_interleaved_RGBA);
 	int stride;
 	const uint8_t* data = image.get_plane(heif_channel_interleaved, &stride);
+	height = image.get_height(heif_channel_interleaved);
 
+	// Not sure how strides work for HEIC, different viewers display different widths...
+	if (stride % nchannels != 0)
+		return NULL;
+	width = stride / nchannels;
 
 	int size = stride * height;
-	// heif_context_read_from_memory();
 	if (pPixelData = new(std::nothrow) unsigned char[size]) {
 		memcpy(pPixelData, data, size);
 		// RGBA -> BGRA conversion (with little-endian integers)
