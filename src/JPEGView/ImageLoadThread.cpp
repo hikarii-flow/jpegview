@@ -364,8 +364,11 @@ static void LimitOffsets(CPoint& offsets, CSize clippingSize, const CSize & imag
 }
 
 void CImageLoadThread::SetCachedAnimatedImage(CString sFileName, EImageFormat format) {
-	m_nLastAnimatedFileType = format;
-	m_sLastAnimatedFileName = sFileName;
+	if (!IsAnimatedImageCached(sFileName, format)) {
+		DeleteCachedAnimatedImage();
+		m_nLastAnimatedFileType = format;
+		m_sLastAnimatedFileName = sFileName;
+	}
 }
 
 bool CImageLoadThread::IsAnimatedImageCached(CString sFileName, EImageFormat format) {
@@ -778,16 +781,17 @@ void CImageLoadThread::ProcessReadGDIPlusRequest(CRequest * request) {
 	if (IsAnimatedImageCached(request->FileName, IF_GIF)) {
 		pBitmap = m_pLastBitmap;
 	} else {
-		DeleteCachedAnimatedImage();
-		m_pLastBitmap = pBitmap = new Gdiplus::Bitmap(sFileName, CSettingsProvider::This().UseEmbeddedColorProfiles());
+		pBitmap = new Gdiplus::Bitmap(sFileName, CSettingsProvider::This().UseEmbeddedColorProfiles());
 	}
 	bool isOutOfMemory, isAnimatedGIF;
 	request->Image = ConvertGDIPlusBitmapToJPEGImage(pBitmap, request->FrameIndex, NULL, 0, isOutOfMemory, isAnimatedGIF);
 	request->OutOfMemory = request->Image == NULL && isOutOfMemory;
-	if (isAnimatedGIF)
+	if (isAnimatedGIF) {
 		SetCachedAnimatedImage(request->FileName, IF_GIF);
-	else
-		DeleteCachedGDIBitmap();
+		m_pLastBitmap = pBitmap;
+	} else {
+		delete pBitmap;
+	}
 }
 
 static unsigned char* alloc(int sizeInBytes) {
