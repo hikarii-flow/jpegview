@@ -281,9 +281,6 @@ void CImageLoadThread::ReleaseFile(LPCTSTR strFileName) {
 void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 	if (request.Type == CReleaseFileRequest::ReleaseFileRequest) {
 		CReleaseFileRequest& rq = (CReleaseFileRequest&)request;
-		if (rq.FileName == m_sLastFileName) {
-			DeleteCachedGDIBitmap();
-		}
 		if (rq.FileName == m_sLastAnimatedFileName) {
 			DeleteCachedAnimatedImage();
 		}
@@ -298,39 +295,30 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 		DeleteCachedAnimatedImage();
 	switch (format) {
 		case IF_JPEG :
-			DeleteCachedGDIBitmap();
 			ProcessReadJPEGRequest(&rq);
 			break;
 		case IF_WindowsBMP :
-			DeleteCachedGDIBitmap();
 			ProcessReadBMPRequest(&rq);
 			break;
 		case IF_TGA :
-			DeleteCachedGDIBitmap();
 			ProcessReadTGARequest(&rq);
 			break;
 		case IF_WEBP:
-			DeleteCachedGDIBitmap();
 			ProcessReadWEBPRequest(&rq);
 			break;
 		case IF_JXL:
-			DeleteCachedGDIBitmap();
 			ProcessReadJXLRequest(&rq);
 			break;
 		case IF_HEIF:
-			DeleteCachedGDIBitmap();
 			ProcessReadHEIFRequest(&rq);
 			break;
 		case IF_CameraRAW:
-			DeleteCachedGDIBitmap();
 			ProcessReadRAWRequest(&rq);
 			break;
 		case IF_WIC:
-			DeleteCachedGDIBitmap();
 			ProcessReadWICRequest(&rq);
 			break;
 		case IF_PNG:
-			DeleteCachedGDIBitmap();
 			ProcessReadPNGRequest(&rq);
 			break;
 		default:
@@ -375,20 +363,27 @@ static void LimitOffsets(CPoint& offsets, CSize clippingSize, const CSize & imag
 	offsets.y = max(-nMaxOffsetY, min(+nMaxOffsetY, offsets.y));
 }
 
+void CImageLoadThread::SetCachedAnimatedImage(CString sFileName, EImageFormat format) {
+	m_nLastAnimatedFileType = format;
+	m_sLastAnimatedFileName = sFileName;
+}
+
+bool CImageLoadThread::IsAnimatedImageCached(CString sFileName, EImageFormat format) {
+	return format == m_nLastAnimatedFileType && sFileName == m_sLastAnimatedFileName;
+}
+
 void CImageLoadThread::DeleteCachedGDIBitmap() {
 	if (m_pLastBitmap != NULL) {
 		delete m_pLastBitmap;
 	}
 	m_pLastBitmap = NULL;
-	m_sLastFileName.Empty();
 }
 
 void CImageLoadThread::DeleteCachedAnimatedImage()
 {
 	switch (m_nLastAnimatedFileType) {
 		case IF_GIF:
-			delete m_pLastBitmap;
-			m_pLastBitmap = NULL;
+			DeleteCachedGDIBitmap();
 			break;
 		case IF_WEBP:
 			__declspec(dllimport) void Webp_Dll_AnimDecoderDelete();
@@ -402,15 +397,6 @@ void CImageLoadThread::DeleteCachedAnimatedImage()
 			break;
 	}
 	m_sLastAnimatedFileName.Empty();
-}
-
-void CImageLoadThread::SetCachedAnimatedImage(CString sFileName, EImageFormat format) {
-	m_nLastAnimatedFileType = format;
-	m_sLastAnimatedFileName = sFileName;
-}
-
-bool CImageLoadThread::IsAnimatedImageCached(CString sFileName, EImageFormat format) {
-	return format == m_nLastAnimatedFileType && sFileName == m_sLastAnimatedFileName;
 }
 
 void CImageLoadThread::ProcessReadJPEGRequest(CRequest * request) {
@@ -793,19 +779,19 @@ void CImageLoadThread::ProcessReadGDIPlusRequest(CRequest * request) {
 	sFileName = (const wchar_t*)request->FileName;
 
 	Gdiplus::Bitmap* pBitmap = NULL;
-	if (sFileName == m_sLastFileName) {
+	if (IsAnimatedImageCached(request->FileName, IF_GIF)) {
 		pBitmap = m_pLastBitmap;
 	} else {
-		DeleteCachedGDIBitmap();
+		DeleteCachedAnimatedImage();
 		m_pLastBitmap = pBitmap = new Gdiplus::Bitmap(sFileName, CSettingsProvider::This().UseEmbeddedColorProfiles());
-		m_sLastFileName = sFileName;
 	}
 	bool isOutOfMemory, isAnimatedGIF;
 	request->Image = ConvertGDIPlusBitmapToJPEGImage(pBitmap, request->FrameIndex, NULL, 0, isOutOfMemory, isAnimatedGIF);
 	request->OutOfMemory = request->Image == NULL && isOutOfMemory;
-	if (!isAnimatedGIF) {
+	if (isAnimatedGIF)
+		SetCachedAnimatedImage(request->FileName, IF_GIF);
+	else
 		DeleteCachedGDIBitmap();
-	}
 }
 
 static unsigned char* alloc(int sizeInBytes) {
