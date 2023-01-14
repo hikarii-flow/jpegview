@@ -396,6 +396,7 @@ void CImageLoadThread::DeleteCachedAnimatedImage()
 			JxlReader::DeleteCache();
 			break;
 	}
+	m_nLastAnimatedFileType = IF_Unknown;
 	m_sLastAnimatedFileName.Empty();
 }
 
@@ -486,7 +487,6 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 
 	HANDLE hFile;
 	if (!bUseCachedDecoder) {
-		DeleteCachedAnimatedImage();
 		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			return;
@@ -528,7 +528,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 			} else {
-				DeleteCachedAnimatedImage();
+				PngReader::DeleteCache();
 			}
 		}
 		bSuccess = true;
@@ -576,7 +576,6 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 
 	HANDLE hFile;
 	if (!bUseCachedDecoder) {
-		DeleteCachedAnimatedImage();
 		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			return;
@@ -614,14 +613,12 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 						uint8* pPixelData = new(std::nothrow) unsigned char[nStride * nHeight];
 						if (pPixelData != NULL) {
 							bool bHasAnimation = bUseCachedDecoder || Webp_Dll_HasAnimation((uint8*)pBuffer, nFileSize);
-							if (bHasAnimation) {
-								SetCachedAnimatedImage(request->FileName, IF_WEBP);
-							}
-
 							int nFrameCount = 1;
 							int nFrameTimeMs = 0;
 							if ((bHasAnimation && Webp_Dll_AnimDecodeBGRAInto((uint8*)pBuffer, nFileSize, pPixelData, nStride * nHeight, nFrameCount, nFrameTimeMs)) ||
 								(!bHasAnimation && Webp_Dll_DecodeBGRAInto((uint8*)pBuffer, nFileSize, pPixelData, nStride * nHeight, nStride))) {
+								if (bHasAnimation)
+									SetCachedAnimatedImage(request->FileName, IF_WEBP);
 								// Multiply alpha value into each AABBGGRR pixel
 								uint32* pImage32 = (uint32*)pPixelData;
 								for (int i = 0; i < nWidth*nHeight; i++)
@@ -630,7 +627,7 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 								request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_WEBP, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 							} else {
 								delete[] pPixelData;
-								DeleteCachedAnimatedImage();
+								Webp_Dll_AnimDecoderDelete();
 							}
 						} else {
 							request->OutOfMemory = true;
@@ -656,7 +653,6 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 
 	HANDLE hFile;
 	if (!bUseCachedDecoder) {
-		DeleteCachedAnimatedImage();
 		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
 		if (hFile == INVALID_HANDLE_VALUE) {
 			return;
@@ -699,7 +695,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 			} else {
-				DeleteCachedAnimatedImage();
+				JxlReader::DeleteCache();
 			}
 		}
 	}
