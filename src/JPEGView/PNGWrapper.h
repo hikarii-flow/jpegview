@@ -11,6 +11,7 @@ public:
 		bool& has_animation,     // if the image is animated
 		int& frame_count, // number of frames
 		int& frame_time, // frame duration in milliseconds
+		int& loop_count, // number of loops
 		bool& outOfMemory, // set to true when no memory to read image
 		void* buffer, // memory address containing png compressed data.
 		size_t sizebytes); // size of png compressed data

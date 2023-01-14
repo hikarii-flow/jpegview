@@ -34,7 +34,7 @@ public:
 	// If RAW metadata is specified, ownership of this memory is transferred to this class.
 	CJPEGImage(int nWidth, int nHeight, void* pPixels, void* pEXIFData, int nChannels, 
 		__int64 nJPEGHash, EImageFormat eImageFormat, bool bIsAnimation, int nFrameIndex, int nNumberOfFrames, int nFrameTimeMs,
-		CLocalDensityCorr* pLDC = NULL, bool bIsThumbnailImage = false, CRawMetadata* pRawMetadata = NULL);
+		int nNumberOfLoops = 0, CLocalDensityCorr* pLDC = NULL, bool bIsThumbnailImage = false, CRawMetadata* pRawMetadata = NULL);
 	~CJPEGImage(void);
 
 	// Gets resampled and processed 32 bpp DIB image (up or downsampled).
@@ -305,6 +305,9 @@ public:
 	// Defaults to 100ms for frame times <=10, to match behavior of web browsers
 	int FrameTimeMs() const { return m_nFrameTimeMs <= 10 ? 100 : m_nFrameTimeMs; }
 
+	// Get the number of loops for animations, 0 otherwise
+	int NumberOfLoops() const { return m_nNumberOfLoops; }
+
 	// Gets if this image was created by pasting from clipboard
 	bool IsClipboardImage() const { return m_eImageFormat == IF_CLIPBOARD; }
 
@@ -366,6 +369,7 @@ private:
 	int m_nFrameIndex;
 	int m_nNumberOfFrames;
 	int m_nFrameTimeMs;
+	int m_nNumberOfLoops;
 
 	// cached thumbnail image, created on first request
 	CJPEGImage* m_pThumbnail;

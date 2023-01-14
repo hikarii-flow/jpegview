@@ -65,6 +65,7 @@ struct PngReader::png_cache {
 	unsigned int channels;
 	unsigned int frame_index;
 	png_uint_32 frame_count;
+	png_uint_32 plays;
 	void* buffer;
 	size_t buffer_size;
 	int buffer_offset;
@@ -246,7 +247,7 @@ bool PngReader::BeginReading(void* buffer, size_t sizebytes, bool& outOfMemory)
 
 #ifdef PNG_APNG_SUPPORTED
 			cache.bop = bop;
-			// cache.plays = plays
+			cache.plays = plays;
 			cache.delay_den = delay_den;
 			cache.delay_num = delay_num;
 			cache.dop = dop;
@@ -306,6 +307,7 @@ void* PngReader::ReadImage(int& width,
 	bool& has_animation,
 	int& frame_count,
 	int& frame_time,
+	int& loop_count,
 	bool& outOfMemory,
 	void* buffer,
 	size_t sizebytes)
@@ -340,6 +342,7 @@ void* PngReader::ReadImage(int& width,
 	nchannels = cache.channels;
 	has_animation = (cache.frame_count > 1);
 	frame_count = cache.frame_count;
+	loop_count = cache.plays;
 
 	// https://wiki.mozilla.org/APNG_Specification
 	// "If the denominator is 0, it is to be treated as if it were 100"

@@ -45,7 +45,8 @@ __declspec(dllexport) void Webp_Dll_AnimDecoderDelete()
 	cached_webp_height = 0;
 }
 
-__declspec(dllexport) uint8_t* Webp_Dll_AnimDecodeBGRAInto(const uint8_t* data, uint32_t data_size, uint8_t* output_buffer, int output_buffer_size, int& nFrameCount, int& nFrameTimeMs)
+__declspec(dllexport) uint8_t* Webp_Dll_AnimDecodeBGRAInto(const uint8_t* data, uint32_t data_size, uint8_t* output_buffer,
+	int output_buffer_size, int& nFrameCount, int& nFrameTimeMs, int& nLoopCount)
 {
 	if (!cached_webp_decoder || !cached_webp_data.bytes) {
 		// Cache WebP data and decoder to keep track of where we are in the file
@@ -79,6 +80,7 @@ __declspec(dllexport) uint8_t* Webp_Dll_AnimDecodeBGRAInto(const uint8_t* data, 
 	WebPAnimInfo anim_info;
 	WebPAnimDecoderGetInfo(decoder, &anim_info);
 	nFrameCount = max(anim_info.frame_count, 1);
+	nLoopCount = anim_info.loop_count;
 	timestamp = max(timestamp, 0);
 	if (timestamp < cached_webp_prev_frame_timestamp)
 		cached_webp_prev_frame_timestamp = 0;

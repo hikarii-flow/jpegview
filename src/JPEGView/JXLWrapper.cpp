@@ -13,7 +13,6 @@ struct JxlReader::jxl_cache {
 	JxlBasicInfo info;
 	uint8_t* data;
 	size_t data_size;
-	int prev_frame_timestamp;
 	int width;
 	int height;
 };
@@ -21,8 +20,8 @@ struct JxlReader::jxl_cache {
 JxlReader::jxl_cache JxlReader::cache = { 0 };
 
 // based on https://github.com/libjxl/libjxl/blob/main/examples/decode_oneshot.cc
-bool JxlReader::DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector<uint8_t>* pixels, int& xsize,
-	int& ysize, bool& have_animation, int& frame_count, int& frame_time, std::vector<uint8_t>* icc_profile, bool& outOfMemory) {
+bool JxlReader::ReadNextFrame(const uint8_t* jxl, size_t size, std::vector<uint8_t>* pixels, int& xsize, int& ysize,
+	bool& have_animation, int& frame_count, int& frame_time, int& loop_count, std::vector<uint8_t>* icc_profile, bool& outOfMemory) {
 
 	if (cache.decoder.get() == NULL) {
 		cache.runner = JxlResizableParallelRunnerMake(nullptr);
@@ -121,8 +120,10 @@ bool JxlReader::DecodeJpegXlOneShot(const uint8_t* jxl, size_t size, std::vector
 			if (have_animation) {
 				// TODO: Find a better way to indicate unknown frame count. JPEG XL images do not store number of frames.
 				frame_count = 2;
+				loop_count = cache.info.animation.num_loops;
 			} else {
 				frame_count = 1;
+				loop_count = 0;
 			}
 			return true;
 		} else if (status == JXL_DEC_SUCCESS) {
@@ -147,6 +148,7 @@ void* JxlReader::ReadImage(int& width,
 	bool& has_animation,
 	int& frame_count,
 	int& frame_time,
+	int& loop_count,
 	bool& outOfMemory,
 	const void* buffer,
 	int sizebytes)
@@ -155,13 +157,14 @@ void* JxlReader::ReadImage(int& width,
 	width = height = 0;
 	nchannels = 4;
 	has_animation = false;
+	loop_count = 0;
 	unsigned char* pPixelData = NULL;
 
 
 	std::vector<uint8_t> pixels;
 	std::vector<uint8_t> icc_profile;
-	if (!DecodeJpegXlOneShot((const uint8_t*)buffer, sizebytes, &pixels, width, height,
-		has_animation, frame_count, frame_time, &icc_profile, outOfMemory)) {
+	if (!ReadNextFrame((const uint8_t*)buffer, sizebytes, &pixels, width, height,
+		has_animation, frame_count, frame_time, loop_count, &icc_profile, outOfMemory)) {
 		return NULL;
 	}
 	int size = width * height * nchannels;

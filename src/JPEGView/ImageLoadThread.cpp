@@ -167,6 +167,7 @@ static CJPEGImage* ConvertGDIPlusBitmapToJPEGImage(Gdiplus::Bitmap* pBitmap, int
 	int nFrameCount = (nDimensions == 0) ? 1 : pBitmap->GetFrameCount(&pDimensionIDs[0]);
 	nFrameIndex = max(0, min(nFrameCount - 1, nFrameIndex));
 	int nFrameTimeMs = 100;
+	int nLoopCount = 0;
 	if (nFrameCount > 1) {
 		isAnimatedGIF = eImageFormat == IF_GIF;
 		int nTagFrameDelaySize = pBitmap->GetPropertyItemSize(PropertyTagFrameDelay);
@@ -174,6 +175,18 @@ static CJPEGImage* ConvertGDIPlusBitmapToJPEGImage(Gdiplus::Bitmap* pBitmap, int
 			PropertyItem* pPropertyItem = (PropertyItem*)new char[nTagFrameDelaySize];
 			if (pBitmap->GetPropertyItem(PropertyTagFrameDelay, nTagFrameDelaySize, pPropertyItem) == Gdiplus::Ok) {
 				nFrameTimeMs = ((long*)pPropertyItem->value)[nFrameIndex] * 10;
+			}
+			delete[] pPropertyItem;
+		}
+		int nTagLoopCountSize = pBitmap->GetPropertyItemSize(PropertyTagLoopCount);
+		if (nTagLoopCountSize > 0) {
+			PropertyItem* pPropertyItem = (PropertyItem*)new char[nTagLoopCountSize];
+			if (pBitmap->GetPropertyItem(PropertyTagLoopCount, nTagLoopCountSize, pPropertyItem) == Gdiplus::Ok) {
+				nLoopCount = *((unsigned short*)pPropertyItem->value);
+				// Loop counts of 2 will be treated as 1
+				// https://stackoverflow.com/q/58473981
+				if (nLoopCount > 1)
+					nLoopCount++;
 			}
 			delete[] pPropertyItem;
 		}
@@ -214,7 +227,7 @@ static CJPEGImage* ConvertGDIPlusBitmapToJPEGImage(Gdiplus::Bitmap* pBitmap, int
 		void* pDIB = CBasicProcessing::ConvertGdiplus32bppRGB(bmRect.Width, bmRect.Height, bmData.Stride, bmData.Scan0);
 		if (pDIB != NULL) {
 			pJPEGImage = new CJPEGImage(bmRect.Width, bmRect.Height, pDIB, pEXIFData, 4, nJPEGHash, eImageFormat,
-				eImageFormat == IF_GIF && nFrameCount > 1, nFrameIndex, nFrameCount, nFrameTimeMs);
+				eImageFormat == IF_GIF && nFrameCount > 1, nFrameIndex, nFrameCount, nFrameTimeMs, nLoopCount);
 		}
 		pBitmapToUse->UnlockBits(&bmData);
 	}
@@ -516,9 +529,9 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 			nFileSize = 0; // to avoid compiler warnings, not used
 		}
 		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs, nLoopCount;
 			bool bHasAnimation;
-			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+			uint8* pPixelData = (uint8*)PngReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, nLoopCount, request->OutOfMemory, pBuffer, nFileSize);
 			if (pPixelData != NULL) {
 				if (bHasAnimation)
 					SetCachedAnimatedImage(request->FileName, IF_PNG);
@@ -529,7 +542,7 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 				for (int i = 0; i < nWidth * nHeight; i++)
 					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
-				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_PNG, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs, nLoopCount);
 			} else {
 				PngReader::DeleteCache();
 			}
@@ -569,7 +582,8 @@ void CImageLoadThread::ProcessReadTGARequest(CRequest * request) {
 __declspec(dllimport) int Webp_Dll_GetInfo(const uint8* data, size_t data_size, int* width, int* height);
 __declspec(dllimport) int Webp_Dll_GetInfoCached(int& width, int& height);
 __declspec(dllimport) bool Webp_Dll_HasAnimation(const uint8* data, uint32 data_size);
-__declspec(dllimport) uint8* Webp_Dll_AnimDecodeBGRAInto(const uint8* data, uint32 data_size, uint8* output_buffer, int output_buffer_size, int& nFrameCount, int& nFrameTimeMs);
+__declspec(dllimport) uint8* Webp_Dll_AnimDecodeBGRAInto(const uint8* data, uint32 data_size, uint8* output_buffer,
+	int output_buffer_size, int& nFrameCount, int& nFrameTimeMs, int& nLoopCount);
 __declspec(dllimport) uint8* Webp_Dll_DecodeBGRInto(const uint8* data, uint32 data_size, uint8* output_buffer, int output_buffer_size, int output_stride);
 __declspec(dllimport) uint8* Webp_Dll_DecodeBGRAInto(const uint8* data, uint32 data_size, uint8* output_buffer, int output_buffer_size, int output_stride);
 __declspec(dllimport) void Webp_Dll_AnimDecoderDelete();
@@ -618,7 +632,8 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 							bool bHasAnimation = bUseCachedDecoder || Webp_Dll_HasAnimation((uint8*)pBuffer, nFileSize);
 							int nFrameCount = 1;
 							int nFrameTimeMs = 0;
-							if ((bHasAnimation && Webp_Dll_AnimDecodeBGRAInto((uint8*)pBuffer, nFileSize, pPixelData, nStride * nHeight, nFrameCount, nFrameTimeMs)) ||
+							int nLoopCount = 0;
+							if ((bHasAnimation && Webp_Dll_AnimDecodeBGRAInto((uint8*)pBuffer, nFileSize, pPixelData, nStride * nHeight, nFrameCount, nFrameTimeMs, nLoopCount)) ||
 								(!bHasAnimation && Webp_Dll_DecodeBGRAInto((uint8*)pBuffer, nFileSize, pPixelData, nStride * nHeight, nStride))) {
 								if (bHasAnimation)
 									SetCachedAnimatedImage(request->FileName, IF_WEBP);
@@ -627,7 +642,7 @@ void CImageLoadThread::ProcessReadWEBPRequest(CRequest * request) {
 								for (int i = 0; i < nWidth*nHeight; i++)
 									*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
-								request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_WEBP, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+								request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_WEBP, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs, nLoopCount);
 							} else {
 								delete[] pPixelData;
 								Webp_Dll_AnimDecoderDelete();
@@ -683,9 +698,9 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 			}
 		}
 		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
-			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs, nLoopCount;
 			bool bHasAnimation;
-			uint8* pPixelData = (uint8*)JxlReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+			uint8* pPixelData = (uint8*)JxlReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, nFrameCount, nFrameTimeMs, nLoopCount, request->OutOfMemory, pBuffer, nFileSize);
 			if (pPixelData != NULL) {
 				if (bHasAnimation)
 					SetCachedAnimatedImage(request->FileName, IF_JXL);
@@ -696,7 +711,7 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 				for (int i = 0; i < nWidth * nHeight; i++)
 					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
-				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs, nLoopCount);
 			} else {
 				JxlReader::DeleteCache();
 			}

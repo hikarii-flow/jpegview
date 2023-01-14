@@ -60,7 +60,7 @@ static CBasicProcessing::SIMDArchitecture ToSIMDArchitecture(Helpers::CPUType cp
 
 CJPEGImage::CJPEGImage(int nWidth, int nHeight, void* pPixels, void* pEXIFData, int nChannels, __int64 nJPEGHash,
 					   EImageFormat eImageFormat, bool bIsAnimation, int nFrameIndex, int nNumberOfFrames, int nFrameTimeMs,
-					   CLocalDensityCorr* pLDC, bool bIsThumbnailImage, CRawMetadata* pRawMetadata) : m_rotationParams(0) {
+					   int nNumberOfLoops, CLocalDensityCorr* pLDC, bool bIsThumbnailImage, CRawMetadata* pRawMetadata) : m_rotationParams(0) {
 	if (nChannels == 3 || nChannels == 4) {
 		m_pOrigPixels = pPixels;
 		m_nOriginalChannels = nChannels;
@@ -94,6 +94,7 @@ CJPEGImage::CJPEGImage(int nWidth, int nHeight, void* pPixels, void* pEXIFData, 
 	m_nFrameIndex = nFrameIndex;
 	m_nNumberOfFrames = nNumberOfFrames;
 	m_nFrameTimeMs = nFrameTimeMs;
+	m_nNumberOfLoops = nNumberOfLoops;
 	m_eJPEGChromoSampling = TJSAMP_420;
 
 	m_nOrigWidth = m_nInitOrigWidth = nWidth;
@@ -1467,7 +1468,7 @@ CJPEGImage* CJPEGImage::CreateThumbnailImage() {
 		nHeight = psiSize.cy;
 		pPixels = m_pLDC->GetPSImageAsDIB();
 	}
-	return new CJPEGImage(nWidth, nHeight, pPixels, NULL, 4, -1, IF_CLIPBOARD, false, 0, 1, 0, m_pLDC, true);
+	return new CJPEGImage(nWidth, nHeight, pPixels, NULL, 4, -1, IF_CLIPBOARD, false, 0, 1, 0, 0, m_pLDC, true);
 }
 
 void CJPEGImage::DrawGridLines(void * pDIB, const CSize& dibSize) {
