@@ -15,6 +15,7 @@
 #include "PNGWrapper.h"
 #include "JXLWrapper.h"
 #include "HEIFWrapper.h"
+#include "AVIFWrapper.h"
 #endif
 #include "WEBPWrapper.h"
 #include "MaxImageDef.h"
@@ -98,13 +99,12 @@ static EImageFormat GetImageFormat(LPCTSTR sFileName) {
 	//	(header[0] == 0x4d && header[1] == 0x4d && header[2] == 0x00 && header[3] == 0x2a)) {
 	//	return IF_TIFF;
 
-	} else if (header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 &&
-		memcmp(header+4, "ftyp", 4) == 0 &&
-		(
-			// https://github.com/strukturag/libheif/issues/83
-			memcmp(header+8, "avif", 4) == 0 ||
-			memcmp(header+8, "avis", 4) == 0 ||
-			memcmp(header+8, "heic", 4) == 0 ||
+	} else if (header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 && memcmp(header+4, "ftyp", 4) == 0) {
+		if (memcmp(header + 8, "avif", 4) == 0 || memcmp(header + 8, "avis", 4) == 0)
+			return IF_AVIF;
+
+		// https://github.com/strukturag/libheif/issues/83
+		if (memcmp(header+8, "heic", 4) == 0 ||
 			memcmp(header+8, "heix", 4) == 0 ||
 			memcmp(header+8, "hevc", 4) == 0 ||
 			memcmp(header+8, "hevx", 4) == 0 ||
@@ -113,9 +113,8 @@ static EImageFormat GetImageFormat(LPCTSTR sFileName) {
 			memcmp(header+8, "hevm", 4) == 0 ||
 			memcmp(header+8, "hevs", 4) == 0 ||
 			memcmp(header+8, "mif1", 4) == 0 ||
-			memcmp(header+8, "msf1", 4) == 0	
-		)) {
-		return IF_HEIF;
+			memcmp(header+8, "msf1", 4) == 0)
+			return IF_HEIF;
 	} else {
 		return Helpers::GetImageFormat(sFileName);
 	}
@@ -347,6 +346,13 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			ProcessReadJXLRequest(&rq);
+			break;
+		case IF_AVIF:
+			DeleteCachedGDIBitmap();
+			DeleteCachedWebpDecoder();
+			DeleteCachedPngDecoder();
+			DeleteCachedJxlDecoder();
+			ProcessReadAVIFRequest(&rq);
 			break;
 		case IF_HEIF:
 			DeleteCachedGDIBitmap();
@@ -761,6 +767,78 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 }
 #endif
 
+#ifndef WINXP
+void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
+	bool bUseCachedDecoder = false;
+	const wchar_t* sFileName;
+	sFileName = (const wchar_t*)request->FileName;
+	if (sFileName != m_sLastJxlFileName) {
+		//DeleteCachedJxlDecoder();
+	}
+	else {
+		//bUseCachedDecoder = true;
+	}
+
+	HANDLE hFile;
+	if (!bUseCachedDecoder) {
+		hFile = ::CreateFile(request->FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			return;
+		}
+	}
+	char* pBuffer = NULL;
+	UINT nPrevErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
+	try {
+		unsigned int nFileSize = 0;
+		unsigned int nNumBytesRead;
+		if (!bUseCachedDecoder) {
+			// Don't read too huge files
+			nFileSize = ::GetFileSize(hFile, NULL);
+			if (nFileSize > MAX_JXL_FILE_SIZE) {
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
+			}
+
+			pBuffer = new(std::nothrow) char[nFileSize];
+			if (pBuffer == NULL) {
+				request->OutOfMemory = true;
+				::CloseHandle(hFile);
+				return;
+			}
+		}
+		if (bUseCachedDecoder || (::ReadFile(hFile, pBuffer, nFileSize, (LPDWORD)&nNumBytesRead, NULL) && nNumBytesRead == nFileSize)) {
+			int nWidth, nHeight, nBPP, nFrameCount, nFrameTimeMs;
+			bool bHasAnimation;
+			uint8* pPixelData = (uint8*)AvifReader::ReadImage(nWidth, nHeight, nBPP, bHasAnimation, request->FrameIndex, 
+				nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
+			if (pPixelData != NULL) {
+				if (bHasAnimation)
+					m_sLastJxlFileName = sFileName;
+				// Multiply alpha value into each AABBGGRR pixel
+				uint32* pImage32 = (uint32*)pPixelData;
+				for (int i = 0; i < nWidth * nHeight; i++)
+					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
+
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+			}
+			else {
+				// DeleteCachedJxlDecoder();
+			}
+		}
+	}
+	catch (...) {
+		delete request->Image;
+		request->Image = NULL;
+		request->ExceptionError = true;
+	}
+	SetErrorMode(nPrevErrorMode);
+	if (!bUseCachedDecoder) {
+		::CloseHandle(hFile);
+		delete[] pBuffer;
+	}
+}
+#endif
 
 #ifndef WINXP
 void CImageLoadThread::ProcessReadHEIFRequest(CRequest* request) {

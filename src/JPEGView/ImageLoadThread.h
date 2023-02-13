@@ -111,6 +111,7 @@ private:
 	void ProcessReadTGARequest(CRequest * request);
 	void ProcessReadWEBPRequest(CRequest * request);
 	void ProcessReadJXLRequest(CRequest* request);
+	void ProcessReadAVIFRequest(CRequest* request);
 	void ProcessReadHEIFRequest(CRequest * request);
 	void ProcessReadRAWRequest(CRequest * request);
 	void ProcessReadGDIPlusRequest(CRequest * request);
