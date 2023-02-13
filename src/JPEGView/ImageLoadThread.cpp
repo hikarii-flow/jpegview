@@ -245,6 +245,7 @@ CImageLoadThread::~CImageLoadThread(void) {
 	DeleteCachedWebpDecoder();
 	DeleteCachedPngDecoder();
 	DeleteCachedJxlDecoder();
+	DeleteCachedAvifDecoder();
 }
 
 int CImageLoadThread::AsyncLoad(LPCTSTR strFileName, int nFrameIndex, const CProcessParams & processParams, HWND targetWnd, HANDLE eventFinished) {
@@ -300,6 +301,9 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 		if (rq.FileName == m_sLastJxlFileName) {
 			DeleteCachedJxlDecoder();
 		}
+		if (rq.FileName == m_sLastAvifFileName) {
+			DeleteCachedAvifDecoder();
+		}
 		return;
 	}
 
@@ -312,6 +316,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadJPEGRequest(&rq);
 			break;
 		case IF_WindowsBMP :
@@ -319,6 +324,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadBMPRequest(&rq);
 			break;
 		case IF_TGA :
@@ -326,12 +332,14 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadTGARequest(&rq);
 			break;
 		case IF_WEBP:
 			DeleteCachedGDIBitmap();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadWEBPRequest(&rq);
 			break;
 #ifndef WINXP
@@ -339,12 +347,14 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedGDIBitmap();
 			DeleteCachedWebpDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadPNGRequest(&rq);
 			break;
 		case IF_JXL:
 			DeleteCachedGDIBitmap();
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadJXLRequest(&rq);
 			break;
 		case IF_AVIF:
@@ -359,6 +369,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadHEIFRequest(&rq);
 			break;
 #endif
@@ -367,6 +378,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadRAWRequest(&rq);
 			break;
 		case IF_WIC:
@@ -374,6 +386,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadWICRequest(&rq);
 			break;
 		default:
@@ -381,6 +394,7 @@ void CImageLoadThread::ProcessRequest(CRequestBase& request) {
 			DeleteCachedWebpDecoder();
 			DeleteCachedPngDecoder();
 			DeleteCachedJxlDecoder();
+			DeleteCachedAvifDecoder();
 			ProcessReadGDIPlusRequest(&rq);
 			break;
 	}
@@ -445,6 +459,13 @@ void CImageLoadThread::DeleteCachedJxlDecoder() {
 #ifndef WINXP
 	JxlReader::DeleteCache();
 	m_sLastJxlFileName.Empty();
+#endif
+}
+
+void CImageLoadThread::DeleteCachedAvifDecoder() {
+#ifndef WINXP
+	AvifReader::DeleteCache();
+	m_sLastAvifFileName.Empty();
 #endif
 }
 
@@ -772,11 +793,11 @@ void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
 	bool bUseCachedDecoder = false;
 	const wchar_t* sFileName;
 	sFileName = (const wchar_t*)request->FileName;
-	if (sFileName != m_sLastJxlFileName) {
-		//DeleteCachedJxlDecoder();
+	if (sFileName != m_sLastAvifFileName) {
+		DeleteCachedAvifDecoder();
 	}
 	else {
-		//bUseCachedDecoder = true;
+		bUseCachedDecoder = true;
 	}
 
 	HANDLE hFile;
@@ -814,16 +835,16 @@ void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
 				nFrameCount, nFrameTimeMs, request->OutOfMemory, pBuffer, nFileSize);
 			if (pPixelData != NULL) {
 				if (bHasAnimation)
-					m_sLastJxlFileName = sFileName;
+					m_sLastAvifFileName = sFileName;
 				// Multiply alpha value into each AABBGGRR pixel
 				uint32* pImage32 = (uint32*)pPixelData;
 				for (int i = 0; i < nWidth * nHeight; i++)
 					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
-				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_JXL, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
+				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_AVIF, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
 			}
 			else {
-				// DeleteCachedJxlDecoder();
+				DeleteCachedAvifDecoder();
 			}
 		}
 	}
