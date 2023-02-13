@@ -717,7 +717,6 @@ void CImageLoadThread::ProcessReadPNGRequest(CRequest* request) {
 }
 #endif
 
-
 #ifndef WINXP
 void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 	bool bUseCachedDecoder = false;
@@ -790,13 +789,13 @@ void CImageLoadThread::ProcessReadJXLRequest(CRequest* request) {
 
 #ifndef WINXP
 void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
+	bool bSuccess = false;
 	bool bUseCachedDecoder = false;
 	const wchar_t* sFileName;
 	sFileName = (const wchar_t*)request->FileName;
 	if (sFileName != m_sLastAvifFileName) {
 		DeleteCachedAvifDecoder();
-	}
-	else {
+	} else {
 		bUseCachedDecoder = true;
 	}
 
@@ -842,8 +841,8 @@ void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
 					*pImage32++ = WebpAlphaBlendBackground(*pImage32, CSettingsProvider::This().ColorTransparency());
 
 				request->Image = new CJPEGImage(nWidth, nHeight, pPixelData, NULL, 4, 0, IF_AVIF, bHasAnimation, request->FrameIndex, nFrameCount, nFrameTimeMs);
-			}
-			else {
+				bSuccess = true;
+			} else {
 				DeleteCachedAvifDecoder();
 			}
 		}
@@ -858,6 +857,8 @@ void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
 		::CloseHandle(hFile);
 		delete[] pBuffer;
 	}
+	if (!bSuccess)
+		return ProcessReadHEIFRequest(request);
 }
 #endif
 
