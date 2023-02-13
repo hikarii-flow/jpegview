@@ -815,7 +815,7 @@ void CImageLoadThread::ProcessReadAVIFRequest(CRequest* request) {
 		if (!bUseCachedDecoder) {
 			// Don't read too huge files
 			nFileSize = ::GetFileSize(hFile, NULL);
-			if (nFileSize > MAX_JXL_FILE_SIZE) {
+			if (nFileSize > MAX_HEIF_FILE_SIZE) {
 				request->OutOfMemory = true;
 				::CloseHandle(hFile);
 				return;
