@@ -199,7 +199,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			// Parse image resources
 			switch (nResourceID) {
 				case 0x040F: // ICC Profile
-					if (nColorMode == MODE_RGB) {
+					if (nColorMode == MODE_RGB || nColorMode == MODE_CMYK) {
 						pICCProfile = new(std::nothrow) char[nResourceSize];
 					}
 					if (pICCProfile != NULL) {
@@ -284,6 +284,8 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 				}
 			} else if (nColorMode == MODE_RGB) {
 				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_BGRA : ICCProfileTransform::FORMAT_BGR);
+			} else if (nColorMode == MODE_CMYK) {
+				transform = ICCProfileTransform::CreateCMYKTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_CMYK : ICCProfileTransform::FORMAT_CMYKA);
 			}
 		}
 
@@ -302,7 +304,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			p += nHeight * nRealChannels * 2;
 			for (unsigned channel = 0; channel < nChannels; channel++) {
 				unsigned rchannel;
-				if (nColorMode == MODE_Lab) {
+				if (nColorMode == MODE_Lab || (nColorMode == MODE_CMYK && transform != NULL)) {
 					rchannel = channel;
 				} else {
 					rchannel = (-channel - 2) % nChannels;
@@ -349,7 +351,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		} else { // No compression
 			for (unsigned channel = 0; channel < nChannels; channel++) {
 				unsigned rchannel;
-				if (nColorMode == MODE_Lab) {
+				if (nColorMode == MODE_Lab || (nColorMode == MODE_CMYK && transform != NULL)) {
 					rchannel = channel;
 				} else {
 					rchannel = (-channel - 2) % nChannels;
@@ -369,15 +371,23 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			}
 		}
 
-		ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
+		if (nColorMode != MODE_CMYK)
+			ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
 
 		if (nChannels == 4) {
-			// Multiply alpha value into each AABBGGRR pixel
 			uint32* pImage32 = (uint32*)pPixelData;
-			// Blend K channel for CMYK images, alpha channel for RGBA images
-			COLORREF backgroundColor = nColorMode == MODE_CMYK ? 0 : CSettingsProvider::This().ColorTransparency();
-			for (int i = 0; i < nWidth * nHeight; i++)
-				*pImage32++ = Helpers::AlphaBlendBackground(*pImage32, backgroundColor);
+
+			if (nColorMode == MODE_CMYK && transform != NULL) {
+				for (int i = 0; i < nWidth * nHeight; i++)
+					*pImage32++ = ~(*pImage32);
+				ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
+			} else {
+				// Multiply alpha value into each AABBGGRR pixel
+				// Blend K channel for CMYK images, alpha channel for RGBA images
+				COLORREF backgroundColor = nColorMode == MODE_CMYK ? 0 : CSettingsProvider::This().ColorTransparency();
+				for (int i = 0; i < nWidth * nHeight; i++)
+					*pImage32++ = Helpers::AlphaBlendBackground(*pImage32, backgroundColor);
+			}
 		}
 
 		Image = new CJPEGImage(nWidth, nHeight, pPixelData, pEXIFData, nChannels, 0, IF_PSD, false, 0, 1, 0);

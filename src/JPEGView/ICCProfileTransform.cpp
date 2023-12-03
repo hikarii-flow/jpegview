@@ -10,6 +10,7 @@
 #define CMS_DLL
 #include "lcms2.h"
 #define TYPE_LabA_8 (COLORSPACE_SH(PT_Lab)|EXTRA_SH(1)|CHANNELS_SH(3)|BYTES_SH(1))
+#define TYPE_YMCK_8 (COLORSPACE_SH(PT_CMYK)|CHANNELS_SH(4)|BYTES_SH(1)|DOSWAP_SH(1)|SWAPFIRST_SH(1))
 
 
 void* ICCProfileTransform::sRGBProfile = NULL;
@@ -33,6 +34,10 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 	cmsUInt32Number flags = cmsFLAGS_BLACKPOINTCOMPENSATION | cmsFLAGS_COPY_ALPHA;
 	cmsUInt32Number inFormat, outFormat;
 	switch (format) {
+		case FORMAT_CMYK:
+			inFormat = TYPE_CMYK_8;
+			outFormat = TYPE_BGRA_8;
+			break;
 		case FORMAT_BGRA:
 			inFormat = TYPE_BGRA_8;
 			outFormat = TYPE_BGRA_8;
@@ -69,6 +74,7 @@ bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, 
 		case TYPE_BGRA_8:
 		case TYPE_RGBA_8:
 		case TYPE_LabA_8:
+		case TYPE_CMYK_8:
 			nchannels = 4;
 			break;
 		case TYPE_BGR_8:
@@ -125,6 +131,36 @@ void* ICCProfileTransform::CreateLabTransform(PixelFormat format) {
 	return transform;
 }
 
+void* ICCProfileTransform::CreateCMYKTransform(const void* profile, unsigned int size, PixelFormat format) {
+	try {
+		if (sRGBProfile == NULL) {
+			sRGBProfile = cmsCreate_sRGBProfile();
+		}
+	}
+	catch (...) {}
+	if (sRGBProfile == NULL)
+		return NULL; // Could not create profile
+
+	cmsHPROFILE hInProfile = cmsOpenProfileFromMem(profile, size);
+
+	// If ICC profile was not supplied we will use our own
+	if (hInProfile == NULL) {
+		CHAR path[MAX_PATH + 10];
+		DWORD length = GetModuleFileNameA(NULL, path, MAX_PATH);
+		if (length > 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+			PathRemoveFileSpecA(path);
+			lstrcatA(path, "\\cmyk.icm");
+		}
+		hInProfile = cmsOpenProfileFromFile(path, "r");
+	}
+
+	cmsUInt32Number flags = cmsFLAGS_BLACKPOINTCOMPENSATION;
+	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, TYPE_CMYK_8, sRGBProfile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, flags);
+	cmsCloseProfile(hInProfile);
+
+	return transform;
+}
+
 #else
 
 // stub out lcms2 methods in an elegant way in XP build, as per suggestion https://github.com/sylikc/jpegview/commit/4b62f07e2a147a04a5014a5711d159670162e799#commitcomment-102738193
@@ -140,6 +176,10 @@ bool ICCProfileTransform::DoTransform(void* /* transform */, const void* /* inpu
 void ICCProfileTransform::DeleteTransform(void* /* transform */) { }
 
 void* ICCProfileTransform::CreateLabTransform(PixelFormat /* format */) {
+	return NULL;
+}
+
+void* ICCProfileTransform::CreateCMYKTransform(const void* /* profile */, unsigned int /* size */, PixelFormat /* format */) {
 	return NULL;
 }
 

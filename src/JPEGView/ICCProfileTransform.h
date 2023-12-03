@@ -10,6 +10,8 @@ public:
 		FORMAT_RGB,
 		FORMAT_Lab,
 		FORMAT_LabA,
+		FORMAT_CMYK,
+		FORMAT_CMYKA,
 	};
 
 	// Create a transform from given ICC Profile to standard sRGB color space.
@@ -33,6 +35,8 @@ public:
 	static void DeleteTransform(void* transform);
 
 	static void* CreateLabTransform(PixelFormat format);
+
+	static void* CreateCMYKTransform(const void* profile, unsigned int size, PixelFormat format);
 
 private:
 	static void* sRGBProfile;
