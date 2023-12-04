@@ -17,7 +17,7 @@ void* ICCProfileTransform::sRGBProfile = NULL;
 
 void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int size, PixelFormat format)
 {
-	if (profile == NULL || size == 0)
+	if (profile == NULL || size == 0 || !CSettingsProvider::This().UseEmbeddedColorProfiles())
 		return NULL; // No ICC Profile
 	if (sRGBProfile == NULL) {
 		try {
@@ -62,7 +62,7 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, void* outputBuffer, unsigned int width, unsigned int height, unsigned int stride)
 {
 	unsigned int numPixels = width * height;
-	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0 || !CSettingsProvider::This().UseEmbeddedColorProfiles())
+	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0)
 		return false;
 
 	int nchannels = T_CHANNELS(cmsGetTransformInputFormat(transform));
