@@ -34,10 +34,6 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 	cmsUInt32Number flags = cmsFLAGS_BLACKPOINTCOMPENSATION | cmsFLAGS_COPY_ALPHA;
 	cmsUInt32Number inFormat, outFormat;
 	switch (format) {
-		case FORMAT_CMYK:
-			inFormat = TYPE_CMYK_8;
-			outFormat = TYPE_BGRA_8;
-			break;
 		case FORMAT_BGRA:
 			inFormat = TYPE_BGRA_8;
 			outFormat = TYPE_BGRA_8;
@@ -68,23 +64,8 @@ bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, 
 	unsigned int numPixels = width * height;
 	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0 || !CSettingsProvider::This().UseEmbeddedColorProfiles())
 		return false;
-	cmsUInt32Number inFormat = cmsGetTransformInputFormat(transform);
-	int nchannels;
-	switch (inFormat) {
-		case TYPE_BGRA_8:
-		case TYPE_RGBA_8:
-		case TYPE_LabA_8:
-		case TYPE_CMYK_8:
-			nchannels = 4;
-			break;
-		case TYPE_BGR_8:
-		case TYPE_RGB_8:
-		case TYPE_Lab_8:
-			nchannels = 3;
-			break;
-		default:
-			return false;
-	}
+
+	int nchannels = T_CHANNELS(cmsGetTransformInputFormat(transform));
 	if (stride == 0)
 		stride = width * nchannels;
 	cmsDoTransformLineStride(transform, inputBuffer, outputBuffer, width, height, stride, Helpers::DoPadding(width * nchannels, 4), stride * height, Helpers::DoPadding(width * nchannels, 4) * height);
@@ -155,7 +136,7 @@ void* ICCProfileTransform::CreateCMYKTransform(const void* profile, unsigned int
 	}
 
 	cmsUInt32Number flags = cmsFLAGS_BLACKPOINTCOMPENSATION;
-	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, TYPE_CMYK_8, sRGBProfile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, flags);
+	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, TYPE_YMCK_8, sRGBProfile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, flags);
 	cmsCloseProfile(hInProfile);
 
 	return transform;

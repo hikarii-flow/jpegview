@@ -285,7 +285,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			} else if (nColorMode == MODE_RGB) {
 				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_BGRA : ICCProfileTransform::FORMAT_BGR);
 			} else if (nColorMode == MODE_CMYK) {
-				transform = ICCProfileTransform::CreateCMYKTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_CMYK : ICCProfileTransform::FORMAT_CMYKA);
+				transform = ICCProfileTransform::CreateCMYKTransform(pICCProfile, nICCProfileSize, ICCProfileTransform::FORMAT_YMCK);
 			}
 		}
 
@@ -304,7 +304,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			p += nHeight * nRealChannels * 2;
 			for (unsigned channel = 0; channel < nChannels; channel++) {
 				unsigned rchannel;
-				if (nColorMode == MODE_Lab || (nColorMode == MODE_CMYK && transform != NULL)) {
+				if (nColorMode == MODE_Lab) {
 					rchannel = channel;
 				} else {
 					rchannel = (-channel - 2) % nChannels;
@@ -351,7 +351,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		} else { // No compression
 			for (unsigned channel = 0; channel < nChannels; channel++) {
 				unsigned rchannel;
-				if (nColorMode == MODE_Lab || (nColorMode == MODE_CMYK && transform != NULL)) {
+				if (nColorMode == MODE_Lab) {
 					rchannel = channel;
 				} else {
 					rchannel = (-channel - 2) % nChannels;
