@@ -380,6 +380,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 				for (int i = 0; i < nWidth * nHeight; i++)
 					*pImage32++ = ~(*pImage32);
 				ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
+				nChannels = 3;
 			} else {
 				// Multiply alpha value into each AABBGGRR pixel
 				// Blend K channel for CMYK images, alpha channel for RGBA images

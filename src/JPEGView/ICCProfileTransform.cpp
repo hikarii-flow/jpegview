@@ -51,8 +51,8 @@ void* ICCProfileTransform::GetCMYKProfile() {
 
 void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int size, PixelFormat format)
 {
-	if (profile == NULL || size == 0 || GetsRGBProfile() == NULL)
-		return NULL; // No ICC Profile or lcms2.dll not found
+	if (GetsRGBProfile() == NULL)
+		return NULL; // lcms2.dll not found
 
 	// Create transform from embedded profile to sRGB
 	cmsUInt32Number inFormat, outFormat;
@@ -83,12 +83,15 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 			break;
 		case FORMAT_YMCK:
 			inFormat = TYPE_YMCK_8;
-			outFormat = TYPE_BGRA_8;
+			outFormat = TYPE_BGR_8;
 			break;
 		default:
 			return NULL;
 	}
-	cmsHPROFILE hEmbeddedProfile = CSettingsProvider::This().UseEmbeddedColorProfiles() ? cmsOpenProfileFromMem(profile, size) : NULL;
+	cmsHPROFILE hEmbeddedProfile = NULL;
+	if (profile != NULL && size > 0 && CSettingsProvider::This().UseEmbeddedColorProfiles()) {
+		hEmbeddedProfile = cmsOpenProfileFromMem(profile, size);
+	}
 	cmsHPROFILE hInProfile = hEmbeddedProfile;
 	if (hInProfile == NULL) {
 		switch (T_COLORSPACE(inFormat)) {
@@ -99,6 +102,8 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 			case PT_Lab:
 				hInProfile = GetLabProfile();
 				break;
+			default:
+				return NULL;
 		}
 	}
 
@@ -113,7 +118,7 @@ bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, 
 		return false;
 
 	cmsUInt32Number defaultStride = width * T_CHANNELS(cmsGetTransformInputFormat(transform));
-	cmsUInt32Number bytesPerLineOut = Helpers::DoPadding(defaultStride, 4);
+	cmsUInt32Number bytesPerLineOut = Helpers::DoPadding(width * T_CHANNELS(cmsGetTransformOutputFormat(transform)), 4);
 	if (stride == 0)
 		stride = defaultStride;
 	cmsDoTransformLineStride(transform, inputBuffer, outputBuffer, width, height, stride, bytesPerLineOut, stride * height, bytesPerLineOut * height);
