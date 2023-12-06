@@ -33,10 +33,19 @@ public:
 	// Free memory associated with the given transform
 	static void DeleteTransform(void* transform);
 
-	static void* CreateLabTransform(PixelFormat format);
+	static void* CreateLabTransform(const void* profile, unsigned int size, PixelFormat format);
 
 	static void* CreateCMYKTransform(const void* profile, unsigned int size, PixelFormat format);
 
 private:
+	static const int FLAGS;
+
 	static void* sRGBProfile;
+	static void* LabProfile;
+	static void* CMYKProfile;
+
+	static void* InitializesRGBProfile();
+	static void* InitializeLabProfile();
+	static void* InitializeCMYKProfile();
+
 };

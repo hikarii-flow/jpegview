@@ -199,9 +199,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			// Parse image resources
 			switch (nResourceID) {
 				case 0x040F: // ICC Profile
-					if (nColorMode == MODE_RGB || nColorMode == MODE_CMYK) {
-						pICCProfile = new(std::nothrow) char[nResourceSize];
-					}
+					pICCProfile = new(std::nothrow) char[nResourceSize];
 					if (pICCProfile != NULL) {
 						ReadFromFile(pICCProfile, hFile, nResourceSize);
 						SeekFile(hFile, -nResourceSize);
@@ -277,7 +275,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		// Apply ICC Profile
 		if (nChannels == 3 || nChannels == 4) {
 			if (nColorMode == MODE_Lab) {
-				transform = ICCProfileTransform::CreateLabTransform(nChannels == 4 ? ICCProfileTransform::FORMAT_LabA : ICCProfileTransform::FORMAT_Lab);
+				transform = ICCProfileTransform::CreateLabTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_LabA : ICCProfileTransform::FORMAT_Lab);
 				if (transform == NULL) {
 					// If we can't convert Lab to sRGB then just use the Lightness channel as grayscale
 					nChannels = min(nChannels, 1);
@@ -378,6 +376,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			uint32* pImage32 = (uint32*)pPixelData;
 
 			if (nColorMode == MODE_CMYK && transform != NULL) {
+				// Do proper color management for CMYK
 				for (int i = 0; i < nWidth * nHeight; i++)
 					*pImage32++ = ~(*pImage32);
 				ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
