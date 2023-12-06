@@ -275,7 +275,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		// Apply ICC Profile
 		if (nChannels == 3 || nChannels == 4) {
 			if (nColorMode == MODE_Lab) {
-				transform = ICCProfileTransform::CreateLabTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_LabA : ICCProfileTransform::FORMAT_Lab);
+				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_LabA : ICCProfileTransform::FORMAT_Lab);
 				if (transform == NULL) {
 					// If we can't convert Lab to sRGB then just use the Lightness channel as grayscale
 					nChannels = min(nChannels, 1);
@@ -283,7 +283,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			} else if (nColorMode == MODE_RGB) {
 				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_BGRA : ICCProfileTransform::FORMAT_BGR);
 			} else if (nColorMode == MODE_CMYK) {
-				transform = ICCProfileTransform::CreateCMYKTransform(pICCProfile, nICCProfileSize, ICCProfileTransform::FORMAT_YMCK);
+				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, ICCProfileTransform::FORMAT_YMCK);
 			}
 		}
 

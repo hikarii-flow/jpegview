@@ -19,8 +19,9 @@ void* ICCProfileTransform::LabProfile = NULL;
 void* ICCProfileTransform::CMYKProfile = NULL;
 
 
-void* ICCProfileTransform::InitializesRGBProfile() {
+void* ICCProfileTransform::GetsRGBProfile() {
 	if (sRGBProfile == NULL) {
+		// Use try-catch to avoid crash if lcms2.dll not present
 		try {
 			sRGBProfile = cmsCreate_sRGBProfile();
 		} catch (...) {}
@@ -28,16 +29,14 @@ void* ICCProfileTransform::InitializesRGBProfile() {
 	return sRGBProfile;
 }
 
-void* ICCProfileTransform::InitializeLabProfile() {
+void* ICCProfileTransform::GetLabProfile() {
 	if (LabProfile == NULL) {
-		try {
-			LabProfile = cmsCreateLab4Profile(cmsD50_xyY());
-		} catch (...) {}
+		LabProfile = cmsCreateLab4Profile(cmsD50_xyY());
 	}
 	return LabProfile;
 }
 
-void* ICCProfileTransform::InitializeCMYKProfile() {
+void* ICCProfileTransform::GetCMYKProfile() {
 	if (CMYKProfile == NULL) {
 		CHAR path[MAX_PATH + 10];
 		DWORD length = GetModuleFileNameA(NULL, path, MAX_PATH);
@@ -45,16 +44,14 @@ void* ICCProfileTransform::InitializeCMYKProfile() {
 			PathRemoveFileSpecA(path);
 			lstrcatA(path, "\\cmyk.icm");
 		}
-		try {
-			CMYKProfile = cmsOpenProfileFromFile(path, "r");
-		} catch (...) {}
+		CMYKProfile = cmsOpenProfileFromFile(path, "r");
 	}
 	return CMYKProfile;
 }
 
 void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int size, PixelFormat format)
 {
-	if (profile == NULL || size == 0 || !CSettingsProvider::This().UseEmbeddedColorProfiles() || InitializesRGBProfile() == NULL)
+	if (profile == NULL || size == 0 || GetsRGBProfile() == NULL)
 		return NULL; // No ICC Profile or lcms2.dll not found
 
 	// Create transform from embedded profile to sRGB
@@ -76,17 +73,41 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 			inFormat = TYPE_RGB_8;
 			outFormat = TYPE_BGR_8;
 			break;
+		case FORMAT_Lab:
+			inFormat = TYPE_Lab_8;
+			outFormat = TYPE_BGR_8;
+			break;
+		case FORMAT_LabA:
+			inFormat = TYPE_LabA_8;
+			outFormat = TYPE_BGRA_8;
+			break;
+		case FORMAT_YMCK:
+			inFormat = TYPE_YMCK_8;
+			outFormat = TYPE_BGRA_8;
+			break;
 		default:
 			return NULL;
 	}
-	cmsHPROFILE hInProfile = cmsOpenProfileFromMem(profile, size);
-	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, inFormat, sRGBProfile, outFormat, INTENT_RELATIVE_COLORIMETRIC, FLAGS);
-	cmsCloseProfile(hInProfile);
+	cmsHPROFILE hEmbeddedProfile = CSettingsProvider::This().UseEmbeddedColorProfiles() ? cmsOpenProfileFromMem(profile, size) : NULL;
+	cmsHPROFILE hInProfile = hEmbeddedProfile;
+	if (hInProfile == NULL) {
+		switch (T_COLORSPACE(inFormat)) {
+			// Use our own profiles for CMYK/Lab PSDs
+			case PT_CMYK:
+				hInProfile = GetCMYKProfile();
+				break;
+			case PT_Lab:
+				hInProfile = GetLabProfile();
+				break;
+		}
+	}
+
+	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, inFormat, GetsRGBProfile(), outFormat, INTENT_RELATIVE_COLORIMETRIC, FLAGS);
+	cmsCloseProfile(hEmbeddedProfile);
 	return transform;
 }
 
-bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, void* outputBuffer, unsigned int width, unsigned int height, unsigned int stride)
-{
+bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, void* outputBuffer, unsigned int width, unsigned int height, unsigned int stride) {
 	unsigned int numPixels = width * height;
 	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0)
 		return false;
@@ -104,63 +125,6 @@ void ICCProfileTransform::DeleteTransform(void* transform)
 		cmsDeleteTransform(transform);
 }
 
-void* ICCProfileTransform::CreateLabTransform(const void* profile, unsigned int size, PixelFormat format) {
-	if (InitializesRGBProfile() == NULL || InitializeLabProfile() == NULL)
-		return NULL;
-
-	// Create transform from CIELAB D50 (Photoshop "Lab mode") to sRGB
-	cmsUInt32Number inFormat, outFormat;
-	switch (format) {
-		case FORMAT_Lab:
-			inFormat = TYPE_Lab_8;
-			outFormat = TYPE_BGR_8;
-			break;
-		case FORMAT_LabA:
-			inFormat = TYPE_LabA_8;
-			outFormat = TYPE_BGRA_8;
-			break;
-		default:
-			return NULL;
-	}
-
-	cmsHPROFILE hInProfile = cmsOpenProfileFromMem(profile, size);
-
-	// If ICC profile was not supplied we will use our own
-	if (hInProfile == NULL)
-		hInProfile = InitializeLabProfile();
-	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, inFormat, sRGBProfile, outFormat, INTENT_RELATIVE_COLORIMETRIC, FLAGS);
-	if (hInProfile != LabProfile)
-		cmsCloseProfile(hInProfile);
-
-	return transform;
-}
-
-void* ICCProfileTransform::CreateCMYKTransform(const void* profile, unsigned int size, PixelFormat format) {
-	if (InitializesRGBProfile() == NULL)
-		return NULL;
-
-	cmsUInt32Number inFormat, outFormat;
-	switch (format) {
-		case FORMAT_YMCK:
-			inFormat = TYPE_YMCK_8;
-			outFormat = TYPE_BGRA_8;
-			break;
-		default:
-			return NULL;
-	}
-
-	cmsHPROFILE hInProfile = cmsOpenProfileFromMem(profile, size);
-
-	// If ICC profile was not supplied we will use our own
-	if (hInProfile == NULL)
-		hInProfile = InitializeCMYKProfile();
-	cmsHTRANSFORM transform = cmsCreateTransform(hInProfile, inFormat, sRGBProfile, outFormat, INTENT_RELATIVE_COLORIMETRIC, FLAGS);
-	if (hInProfile != CMYKProfile)
-		cmsCloseProfile(hInProfile);
-
-	return transform;
-}
-
 #else
 
 // stub out lcms2 methods in an elegant way in XP build, as per suggestion https://github.com/sylikc/jpegview/commit/4b62f07e2a147a04a5014a5711d159670162e799#commitcomment-102738193
@@ -174,13 +138,5 @@ bool ICCProfileTransform::DoTransform(void* /* transform */, const void* /* inpu
 }
 
 void ICCProfileTransform::DeleteTransform(void* /* transform */) { }
-
-void* ICCProfileTransform::CreateLabTransform(PixelFormat /* format */) {
-	return NULL;
-}
-
-void* ICCProfileTransform::CreateCMYKTransform(const void* /* profile */, unsigned int /* size */, PixelFormat /* format */) {
-	return NULL;
-}
 
 #endif
