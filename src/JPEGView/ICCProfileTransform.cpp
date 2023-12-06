@@ -112,10 +112,11 @@ bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, 
 	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0)
 		return false;
 
-	int nchannels = T_CHANNELS(cmsGetTransformInputFormat(transform));
+	cmsUInt32Number defaultStride = width * T_CHANNELS(cmsGetTransformInputFormat(transform));
+	cmsUInt32Number bytesPerLineOut = Helpers::DoPadding(defaultStride, 4);
 	if (stride == 0)
-		stride = width * nchannels;
-	cmsDoTransformLineStride(transform, inputBuffer, outputBuffer, width, height, stride, Helpers::DoPadding(width * nchannels, 4), stride * height, Helpers::DoPadding(width * nchannels, 4) * height);
+		stride = defaultStride;
+	cmsDoTransformLineStride(transform, inputBuffer, outputBuffer, width, height, stride, bytesPerLineOut, stride * height, bytesPerLineOut * height);
 	return true;
 }
 
