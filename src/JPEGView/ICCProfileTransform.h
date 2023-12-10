@@ -11,6 +11,7 @@ public:
 		FORMAT_Lab,
 		FORMAT_LabA,
 		FORMAT_YMCK,
+		FORMAT_AKYMC,
 	};
 
 	// Create a transform from given ICC Profile to standard sRGB color space.

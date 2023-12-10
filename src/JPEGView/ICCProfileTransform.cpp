@@ -12,6 +12,7 @@
 #define FLAGS (cmsFLAGS_BLACKPOINTCOMPENSATION|cmsFLAGS_COPY_ALPHA)
 #define TYPE_LabA_8 (COLORSPACE_SH(PT_Lab)|EXTRA_SH(1)|CHANNELS_SH(3)|BYTES_SH(1))
 #define TYPE_YMCK_8 (COLORSPACE_SH(PT_CMYK)|CHANNELS_SH(4)|BYTES_SH(1)|DOSWAP_SH(1)|SWAPFIRST_SH(1))
+#define TYPE_AKYMC_8 (COLORSPACE_SH(PT_CMYK)|EXTRA_SH(1)|CHANNELS_SH(4)|BYTES_SH(1)|DOSWAP_SH(1))
 
 
 void* ICCProfileTransform::sRGBProfile = NULL;
@@ -85,6 +86,10 @@ void* ICCProfileTransform::CreateTransform(const void* profile, unsigned int siz
 			inFormat = TYPE_YMCK_8;
 			outFormat = TYPE_BGR_8;
 			break;
+		case FORMAT_AKYMC:
+			inFormat = TYPE_AKYMC_8;
+			outFormat = TYPE_BGRA_8;
+			break;
 		default:
 			return NULL;
 	}
@@ -117,10 +122,13 @@ bool ICCProfileTransform::DoTransform(void* transform, const void* inputBuffer, 
 	if (transform == NULL || inputBuffer == NULL || outputBuffer == NULL || numPixels == 0)
 		return false;
 
-	cmsUInt32Number defaultStride = width * T_CHANNELS(cmsGetTransformInputFormat(transform));
-	cmsUInt32Number bytesPerLineOut = Helpers::DoPadding(width * T_CHANNELS(cmsGetTransformOutputFormat(transform)), 4);
+	cmsUInt32Number inFormat = cmsGetTransformInputFormat(transform);
+	cmsUInt32Number bppIn = T_CHANNELS(inFormat) + T_EXTRA(inFormat);
+	cmsUInt32Number outFormat = cmsGetTransformOutputFormat(transform);
+	cmsUInt32Number bppOut = T_CHANNELS(outFormat) + T_EXTRA(outFormat);
+	cmsUInt32Number bytesPerLineOut = Helpers::DoPadding(width * bppOut, 4);
 	if (stride == 0)
-		stride = defaultStride;
+		stride = width * bppIn;
 	cmsDoTransformLineStride(transform, inputBuffer, outputBuffer, width, height, stride, bytesPerLineOut, stride * height, bytesPerLineOut * height);
 	return true;
 }

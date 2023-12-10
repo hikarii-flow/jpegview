@@ -79,7 +79,7 @@ static inline unsigned short ReadUShortFromFile(HANDLE file) {
 }
 
 // Read and return an unsigned char from file
-static inline unsigned short ReadUCharFromFile(HANDLE file) {
+static inline unsigned char ReadUCharFromFile(HANDLE file) {
 	unsigned char val;
 	ReadFromFile(&val, file, 1);
 	return val;
@@ -158,14 +158,16 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 				break;
 			case MODE_Lab:
 			case MODE_RGB:
-			case MODE_CMYK:
 				nChannels = min(nRealChannels, 4);
+				break;
+			case MODE_CMYK:
+				nChannels = min(nRealChannels, 5);
 				break;
 		}
 		if (nChannels == 2) {
 			nChannels = 1;
 		}
-		ThrowIf(nChannels != 1 && nChannels != 3 && nChannels != 4);
+		ThrowIf(!nChannels);
 
 		// Skip color mode data
 		unsigned int nColorDataSize = ReadUIntFromFile(hFile);
@@ -175,7 +177,7 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		unsigned int nResourceSectionSize = ReadUIntFromFile(hFile);
 
 		// This default value should detect alpha channels for PSDs created by programs which don't save alpha identifiers (e.g. Krita, GIMP)
-		bool bUseAlpha = nChannels == 4;
+		bool bUseAlpha = nChannels >= 4;
 
 		for (;;) {
 			// Resource block signature
@@ -273,17 +275,21 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 		}
 
 		// Apply ICC Profile
-		if (nChannels == 3 || nChannels == 4) {
+		if (nChannels >= 3) {
 			if (nColorMode == MODE_Lab) {
 				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_LabA : ICCProfileTransform::FORMAT_Lab);
 				if (transform == NULL) {
 					// If we can't convert Lab to sRGB then just use the Lightness channel as grayscale
-					nChannels = min(nChannels, 1);
+					nChannels = 1;
 				}
 			} else if (nColorMode == MODE_RGB) {
 				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 4 ? ICCProfileTransform::FORMAT_BGRA : ICCProfileTransform::FORMAT_BGR);
-			} else if (nColorMode == MODE_CMYK) {
-				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, ICCProfileTransform::FORMAT_YMCK);
+			} else if (nChannels >= 4 && nColorMode == MODE_CMYK) {
+				transform = ICCProfileTransform::CreateTransform(pICCProfile, nICCProfileSize, nChannels == 5 ? ICCProfileTransform::FORMAT_AKYMC : ICCProfileTransform::FORMAT_YMCK);
+				
+				// Uncommenting this enables alpha channels in CMYK. It works for most images but causes weird bugs for one, so I disabled it.
+				// if (transform == NULL)
+					nChannels = 4;
 			}
 		}
 
@@ -369,25 +375,43 @@ CJPEGImage* PsdReader::ReadImage(LPCTSTR strFileName, bool& bOutOfMemory)
 			}
 		}
 
-		if (nColorMode != MODE_CMYK)
+		COLORREF backgroundColor = CSettingsProvider::This().ColorTransparency();
+
+		if (nColorMode == MODE_CMYK) {
+			if (transform != NULL) {
+				uint32* pImage32 = (uint32*)pPixelData;
+
+				for (int i = 0; i < nWidth * nHeight; i++) {
+					if (nChannels == 5)
+						pImage32 = (uint32*)((uint8*)pImage32 + 1);
+					*pImage32++ = ~(*pImage32);
+				}
+
+				if (nChannels == 5) {
+					void* tempBuffer = new(std::nothrow) char[nRowSize * nHeight];
+					if (ICCProfileTransform::DoTransform(transform, pPixelData, tempBuffer, nWidth, nHeight, nRowSize)) {
+						delete[] pPixelData;
+						pPixelData = tempBuffer;
+					} else {
+						delete[] tempBuffer;
+					}
+				} else {
+					ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
+				}
+				nChannels -= 1;
+			} else {
+				// Blend K channel for CMYK images if ICC profiles not supported
+				backgroundColor = 0;
+			}
+		} else {
 			ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
+		}
 
 		if (nChannels == 4) {
 			uint32* pImage32 = (uint32*)pPixelData;
-
-			if (nColorMode == MODE_CMYK && transform != NULL) {
-				// Do proper color management for CMYK
-				for (int i = 0; i < nWidth * nHeight; i++)
-					*pImage32++ = ~(*pImage32);
-				ICCProfileTransform::DoTransform(transform, pPixelData, pPixelData, nWidth, nHeight, nRowSize);
-				nChannels = 3;
-			} else {
-				// Multiply alpha value into each AABBGGRR pixel
-				// Blend K channel for CMYK images, alpha channel for RGBA images
-				COLORREF backgroundColor = nColorMode == MODE_CMYK ? 0 : CSettingsProvider::This().ColorTransparency();
-				for (int i = 0; i < nWidth * nHeight; i++)
-					*pImage32++ = Helpers::AlphaBlendBackground(*pImage32, backgroundColor);
-			}
+			// Multiply alpha value into each AABBGGRR pixel
+			for (int i = 0; i < nWidth * nHeight; i++)
+				*pImage32++ = Helpers::AlphaBlendBackground(*pImage32, backgroundColor);
 		}
 
 		Image = new CJPEGImage(nWidth, nHeight, pPixelData, pEXIFData, nChannels, 0, IF_PSD, false, 0, 1, 0);
