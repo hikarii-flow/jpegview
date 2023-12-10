@@ -673,7 +673,7 @@
 					</Component>
 
 					<Component Id="cmyk.icm" Guid="*">
-						<File Id="cmyk.icm" Name="strings_zh-tw.txt" Source="$(var.JPEGView.TargetDir)cmyk.icm" />
+						<File Id="cmyk.icm" Name="cmyk.icm" Source="$(var.JPEGView.TargetDir)cmyk.icm" />
 					</Component>
 
 				</Directory>
