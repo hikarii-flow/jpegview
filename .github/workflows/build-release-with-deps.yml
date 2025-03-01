@@ -13,13 +13,15 @@ on:
     types: [published]
 
 jobs:
-  #call-workflow-build-win32:
-    #uses: ./.github/workflows/workflow-rebuild-all-deps.yml
-    #with:
-      #platform-arch: Win32
+  call-workflow-build-win32:
+    uses: ./.github/workflows/workflow-rebuild-all-deps.yml
+    with:
+      platform-arch: Win32
 
   call-workflow-build-x64:
-    #needs: call-workflow-build-win32
+    # make sure these two jobs run sequentially, so that the libs are only built on one and not the other
+    # https://stackoverflow.com/questions/63148639/create-dependencies-between-jobs-in-github-actions
+    needs: call-workflow-build-win32
     uses: ./.github/workflows/workflow-rebuild-all-deps.yml
     with:
       platform-arch: x64
