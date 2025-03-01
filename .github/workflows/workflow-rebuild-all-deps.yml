@@ -1,7 +1,9 @@
 name: Reusable - Rebuild All Libs
-# This reusable workflow rebuilds all binary dependencies.  While you can pass in a build-config, only 'Release' configuration is supported because all libraries are built in release configuration.
+# This reusable workflow rebuilds all binary dependencies. While you can pass in a build-config,
+# only 'Release' configuration is supported because all libraries are built in release configuration.
 
-# NOTE: we don't replace any header files here... or anything else, ONLY binaries, so if there's a broken build, it could be caused by those things... and that ought to be updated in the source directly
+# NOTE: We don't replace any header files or anything else, ONLY binaries. If there's a broken build,
+# it might be due to source issues that you need to fix in the repo.
 
 on:
   workflow_call:
@@ -15,10 +17,8 @@ on:
         type: string
         default: Release
 
-
 jobs:
   build:
-    # if windows-latest, might not find VS 2019
     runs-on: windows-2019
 
     steps:
@@ -27,11 +27,16 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Install Dependencies (CMake, pkg-configlite)
+      shell: powershell
+      run: |
+        choco install pkgconfiglite cmake --installargs "ADD_CMAKE_TO_PATH=System" -y
+        echo "C:\\Program Files (x86)\\pkgconfiglite\\bin" >> $env:GITHUB_PATH
+
     - name: Setup msbuild
-      # https://github.com/marketplace/actions/setup-msbuild
       uses: microsoft/setup-msbuild@v1.1
       with:
-        # Fixed on Visual Studio 2019 -- https://docs.microsoft.com/en-us/visualstudio/releases/2019/history
+        # Pin to Visual Studio 2019
         vs-version: '[16.0,17.0)'
         msbuild-architecture: ${{ inputs.platform-arch }}
 
