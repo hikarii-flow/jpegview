@@ -13,7 +13,6 @@ inputs:
     required: false
     default: bin-cache
 
-
 runs:
   using: composite
   steps:
@@ -26,19 +25,25 @@ runs:
     - name: Setup Python (for dav1d build)
       uses: actions/setup-python@v4
       with:
-        # any version will do for right now, but it's safer to just have it set fixed to a version
+        # Any version will do, safer to fix to a version
         python-version: '3.10'
+
+    - name: Install Dependencies (CMake, pkg-configlite)
+      shell: powershell
+      run: |
+        choco install pkgconfiglite cmake --installargs "ADD_CMAKE_TO_PATH=System" -y
+        echo "C:\\Program Files (x86)\\pkgconfiglite\\bin" >> $env:GITHUB_PATH
 
     - name: BIN Cache - Restore LIBs/DLLs from previous GH Action
       # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows
       id: cache-bin
       uses: actions/cache@v3
       with:
-        # cache key changes with every .gitmodules change, so you can run this again manually
-        # but as long as the .gitmodules did not change, it won't try to rebuild
-        # if you want to force a rebuild, delete the cache
+        # Cache key changes with every .gitmodules change, so you can run again manually
+        # but as long as .gitmodules didn't change, it won't try to rebuild
+        # If you want to force a rebuild, delete the cache
         #
-        # append ${{ github.sha }} if you want to rebuild for every commit
+        # Append ${{ github.sha }} if you want to rebuild every commit
         key: ${{ runner.os }}-build-${{ inputs.cache-name }}-${{ hashFiles('.gitmodules') }}
         path: |
           src/JPEGView/libwebp/lib/*.lib
@@ -75,54 +80,57 @@ runs:
           src/JPEGView/libraw/lib/*.lib
           src/JPEGView/libraw/lib64/*.lib
 
-    # cache prevents the rebuild-all to happen twice, since each invocation of the workflow (once for x86, once for x64) causes a rebuild
+          src/JPEGView/libyuv/bin/*.dll
+          src/JPEGView/libyuv/bin64/*.dll
+          src/JPEGView/libyuv/lib/*.lib
+          src/JPEGView/libyuv/lib64/*.lib
 
-    # the cache-hit based on documentation is a string, not a boolean, hence why it looks so funky below
-
-
-    # for speed improvements in some libs, libjpeg-turbo benefits
+    # For speed improvements in some libs, e.g. libjpeg-turbo
     - name: Setup NASM
-      # https://github.com/marketplace/actions/set-up-nasm
       uses: ilammy/setup-nasm@v1
 
+    # Optional: build libyuv if you have a script for it
+    - name: libyuv
+      if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
+      shell: cmd
+      run: call extras\\scripts\\build-libyuv.bat
 
-
-    # run all the batch files to rebuild the required libs/dlls
-    # calling them separately makes it clearer and easier to debug, and
-    # makes sure to die whenever one of these throws an error
-
+    # Build each required library
     - name: libwebp
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libwebp.bat
+      run: call extras\\scripts\\build-libwebp.bat
 
     - name: libjpeg-turbo
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libjpegturbo.bat
+      run: call extras\\scripts\\build-libjpegturbo.bat
 
     - name: libpng
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libpng-apng.bat
+      run: call extras\\scripts\\build-libpng-apng.bat
 
     - name: lcms2
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-lcms2.bat
+      run: call extras\\scripts\\build-lcms2.bat
 
     - name: libheif + libavif
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libheif_libavif.bat
+      run: |
+        set AVIF_CODEC_DAV1D=SYSTEM
+        set AVIF_LOCAL_DAV1D=OFF
+        set AVIF_BUILD_LIBYUV=ON
+        call extras\\scripts\\build-libheif_libavif.bat
 
     - name: libraw
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libraw.bat
+      run: call extras\\scripts\\build-libraw.bat
 
-    # put this last since it takes the longest to build
     - name: libjxl
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
       shell: cmd
-      run: call extras\scripts\build-libjxl.bat
+      run: call extras\\scripts\\build-libjxl.bat
