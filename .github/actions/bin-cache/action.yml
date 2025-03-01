@@ -89,12 +89,6 @@ runs:
     - name: Setup NASM
       uses: ilammy/setup-nasm@v1
 
-    # Optional: build libyuv if you have a script for it
-    - name: libyuv
-      if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
-      shell: cmd
-      run: call extras\\scripts\\build-libyuv.bat
-
     # Build each required library
     - name: libwebp
       if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
