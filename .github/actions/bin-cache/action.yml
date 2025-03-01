@@ -80,11 +80,6 @@ runs:
           src/JPEGView/libraw/lib/*.lib
           src/JPEGView/libraw/lib64/*.lib
 
-          src/JPEGView/libyuv/bin/*.dll
-          src/JPEGView/libyuv/bin64/*.dll
-          src/JPEGView/libyuv/lib/*.lib
-          src/JPEGView/libyuv/lib64/*.lib
-
     # For speed improvements in some libs, e.g. libjpeg-turbo
     - name: Setup NASM
       uses: ilammy/setup-nasm@v1
@@ -116,7 +111,6 @@ runs:
       run: |
         set AVIF_CODEC_DAV1D=SYSTEM
         set AVIF_LOCAL_DAV1D=OFF
-        set AVIF_BUILD_LIBYUV=ON
         call extras\\scripts\\build-libheif_libavif.bat
 
     - name: libraw
