@@ -111,6 +111,7 @@ runs:
       run: |
         set AVIF_CODEC_DAV1D=SYSTEM
         set AVIF_LOCAL_DAV1D=OFF
+        set AVIF_BUILD_LIBYUV=OFF
         call extras\\scripts\\build-libheif_libavif.bat
 
     - name: libraw
